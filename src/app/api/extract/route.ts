@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { parseTextContent, parseMockTimetable, parseOCRContent } from '@/lib/parser';
 import { extractEvents } from '@/lib/extractor';
 import { detectClashes } from '@/lib/clashDetector';
-import { getRun, updateRunStatus, updateRunEvents } from '@/lib/store';
+import { getRun, updateRunStatus, updateRunEvents, updateRunAgentTrace } from '@/lib/store';
 import { getScenarioFixture } from '@/lib/scenarios';
 
 export async function POST(req: NextRequest) {
@@ -65,6 +65,15 @@ export async function POST(req: NextRequest) {
     );
     updateRunStatus(runId, 'reviewing');
 
+    const uncertainCount = extractionResult.events.filter((event) => event.needsReview || event.confidence === 'low' || event.confidence === 'unreadable').length;
+    const agentTrace = [
+      { step: 'Plan extraction', status: 'complete' as const, tool: 'parser-selector', detail: `Selected ${parseResult.method} parsing for ${run.input.sourceType} input.` },
+      { step: 'Extract timetable rows', status: extractionResult.unparsedRows.length || uncertainCount ? 'review' as const : 'complete' as const, tool: 'timetable-parser', detail: `${extractionResult.successfulExtractions} events extracted from ${parseResult.totalRawRows} rows; ${extractionResult.unparsedRows.length} rows unparsed; ${uncertainCount} events need review.` },
+      { step: 'Check clashes', status: clashResult.clashes.length ? 'review' as const : 'complete' as const, tool: 'interval-clash-audit', detail: `${clashResult.clashes.length} overlap(s) found across ${clashResult.totalComparisons} comparisons. Conflicting events remain in the result.` },
+      { step: 'Prepare calendar change', status: 'waiting' as const, tool: 'proposal-builder', detail: 'A change preview is ready. Waiting for a person to inspect and approve before calendar writes.' },
+    ];
+    updateRunAgentTrace(runId, agentTrace);
+
     return NextResponse.json({
       events: extractionResult.events,
       clashes: clashResult.clashes,
@@ -75,6 +84,7 @@ export async function POST(req: NextRequest) {
       totalRows: parseResult.totalRawRows,
       successfulExtractions: extractionResult.successfulExtractions,
       totalComparisons: clashResult.totalComparisons,
+      agentTrace,
     });
   } catch (error) {
     return NextResponse.json(

@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/.presentation-build/
+/docs/preview-*.png
 
 # next.js
 /.next/

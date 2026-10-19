@@ -62,6 +62,14 @@ export function updateRunEvents(
   }
 }
 
+export function updateRunAgentTrace(runId: string, agentTrace: Run['agentTrace']): void {
+  const run = runs.get(runId);
+  if (!run) return;
+  run.agentTrace = agentTrace;
+  run.updatedAt = new Date().toISOString();
+  saveRecords('runs.json', runs.values());
+}
+
 export function updateRunVerification(runId: string, report: VerificationReport): void {
   const run = runs.get(runId);
   if (run) {

@@ -73,6 +73,18 @@ async function runTC1(scenario: typeof SCENARIOS[0]): Promise<ScenarioResult> {
 
   const allRoomsCorrect = extraction.events.every(e => e.room && e.room !== 'TBA');
   const hasRecurrence = extraction.events.every(e => e.recurrenceStart && e.recurrenceEnd);
+  // Isolated simulated destination: expand each recurring event into four weekly
+  // occurrences without writing to the shared demo calendar.
+  const simulatedCalendar = extraction.events.flatMap((event) => Array.from({ length: 4 }, (_, week) => ({
+    sourceEventId: event.id,
+    code: event.courseCode,
+    room: event.room,
+    weekday: event.weekday,
+    startTime: event.startTime,
+    endTime: event.endTime,
+    occurrence: week + 1,
+  })));
+  const simulationVerified = simulatedCalendar.length === extraction.events.length * 4 && simulatedCalendar.every((slot) => slot.room && slot.room !== 'TBA' && slot.startTime < slot.endTime);
 
   const actual = [
     `Parsed ${extraction.successfulExtractions} events from ${parseResult.totalRawRows} rows.`,
@@ -80,17 +92,19 @@ async function runTC1(scenario: typeof SCENARIOS[0]): Promise<ScenarioResult> {
     `Clashes detected: ${clashes.clashes.length}.`,
     `All rooms assigned: ${allRoomsCorrect ? 'Yes' : 'No'}.`,
     `Recurrence set: ${hasRecurrence ? 'Yes' : 'No'}.`,
-    'Calendar changes: previewed; awaiting explicit human approval.',
+    `Isolated calendar simulation: ${simulatedCalendar.length} weekly occurrences checked; shared calendar unchanged.`,
+    'Real calendar changes: none; the live workflow waits for explicit human approval.',
     `Rooms: ${extraction.events.map(e => `${e.courseCode}→${e.room}`).join(', ')}.`,
   ].join('\n');
 
   const passed = extraction.successfulExtractions >= 8 && clashes.clashes.length === 0 && 
-                 allRoomsCorrect && hasRecurrence;
+                 allRoomsCorrect && hasRecurrence && simulationVerified;
 
   return {
     scenarioId: 'TC1',
     runId: run.id,
     expected: scenario.expectedResult,
+    input: content,
     actual,
     passed,
     evidence: JSON.stringify({
@@ -145,6 +159,7 @@ async function runTC2(scenario: typeof SCENARIOS[0]): Promise<ScenarioResult> {
     scenarioId: 'TC2',
     runId: run.id,
     expected: scenario.expectedResult,
+    input: content,
     actual,
     passed,
     evidence: JSON.stringify({
@@ -174,6 +189,19 @@ async function runTC3(scenario: typeof SCENARIOS[0]): Promise<ScenarioResult> {
   // Step 3: Diff
   const diff = diffEvents(extract2.events, extract1.events.map((event) => ({ id: event.id, contentHash: event.contentHash })));
 
+  // Exercise the update operation against a disposable map, never the shared calendar.
+  const originalById = new Map(extract1.events.map((event) => [event.id, event]));
+  const revisedById = new Map(extract2.events.map((event) => [event.id, event]));
+  const isolatedCalendar = new Map(originalById);
+  const updatedBefore = new Map(diff.updatedEvents.map((id) => [id, isolatedCalendar.get(id)?.contentHash]));
+  for (const id of [...diff.newEvents, ...diff.updatedEvents]) {
+    const revised = revisedById.get(id);
+    if (revised) isolatedCalendar.set(id, revised);
+  }
+  const onlyChangedWereWritten = diff.updatedEvents.every((id) => updatedBefore.get(id) !== isolatedCalendar.get(id)?.contentHash) &&
+    diff.unchangedEvents.every((id) => originalById.get(id)?.contentHash === isolatedCalendar.get(id)?.contentHash) &&
+    isolatedCalendar.size === extract2.events.length;
+
   updateRunEvents(run.id, extract2.events, [], []);
   updateRunStatus(run.id, 'reviewing');
 
@@ -183,7 +211,8 @@ async function runTC3(scenario: typeof SCENARIOS[0]): Promise<ScenarioResult> {
     `New events: ${diff.newEvents.length} (${diff.newEvents.join(', ') || 'none'}).`,
     `Updated events: ${diff.updatedEvents.length} (${diff.updatedEvents.join(', ') || 'none'}).`,
     `Unchanged events: ${diff.unchangedEvents.length} (${diff.unchangedEvents.join(', ') || 'none'}).`,
-    'Calendar writes: none; this benchmark only previews the revision diff.',
+    `Isolated simulated calendar: wrote ${diff.updatedEvents.length} changed event(s); unchanged entries retained their original hashes.`,
+    `Revised snapshot equals expected target: ${onlyChangedWereWritten ? 'Yes' : 'No'}. Shared calendar unchanged; real changes still require human approval.`,
     `Updated details:`,
     ...diff.updatedEvents.map(id => {
       const orig = extract1.events.find(e => e.id === id);
@@ -194,17 +223,21 @@ async function runTC3(scenario: typeof SCENARIOS[0]): Promise<ScenarioResult> {
 
   const passed = diff.unchangedEvents.length > 0 && 
                  diff.updatedEvents.length > 0 && 
-                 diff.newEvents.length === 0;
+                 diff.newEvents.length === 0 && onlyChangedWereWritten;
 
   return {
     scenarioId: 'TC3',
     runId: run.id,
     expected: scenario.expectedResult,
+    input: `ORIGINAL TIMETABLE\n${originalContent}\n\nREVISED TIMETABLE\n${revisedContent}`,
     actual,
     passed,
     evidence: JSON.stringify({
       source: { originalFixture: 'tc3-original.txt', revisedFixture: 'tc3-revised.txt', originalInput: originalContent, revisedInput: revisedContent },
       diff,
+      isolatedCalendarWrites: diff.updatedEvents,
+      onlyChangedWereWritten,
+      isolatedFinalCalendar: Array.from(isolatedCalendar.values()).map((event) => ({ id: event.id, code: event.courseCode, hash: event.contentHash, room: event.room, day: event.weekday, time: `${event.startTime}-${event.endTime}` })),
       originalEvents: extract1.events.map(e => ({ id: e.id, code: e.courseCode, hash: e.contentHash, room: e.room, time: `${e.startTime}-${e.endTime}` })),
       revisedEvents: extract2.events.map(e => ({ id: e.id, code: e.courseCode, hash: e.contentHash, room: e.room, time: `${e.startTime}-${e.endTime}` })),
     }, null, 2),
@@ -245,6 +278,7 @@ async function runTC4(scenario: typeof SCENARIOS[0]): Promise<ScenarioResult> {
     scenarioId: 'TC4',
     runId: run.id,
     expected: scenario.expectedResult,
+    input: content,
     actual,
     passed,
     evidence: JSON.stringify({
@@ -252,6 +286,7 @@ async function runTC4(scenario: typeof SCENARIOS[0]): Promise<ScenarioResult> {
       unparsedRows: extraction.unparsedRows,
       parsedEvents: extraction.events.map(e => ({ id: e.id, code: e.courseCode, day: e.weekday, confidence: e.confidence })),
       parseMethod: parseResult.method,
+      note: 'Synthetic OCR-like text fixture; no image OCR engine was run.',
     }, null, 2),
     timestamp: new Date().toISOString(),
   };

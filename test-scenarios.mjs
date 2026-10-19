@@ -30,6 +30,9 @@ async function testScenarios() {
     if (!data.result.evidence || !JSON.parse(data.result.evidence).source) {
       failures.push(`${sc}: source fixture/input was not recorded with the result`);
     }
+    if (!data.result.input || !data.result.expected || !data.result.actual || !data.result.timestamp) {
+      failures.push(`${sc}: input, expected/actual result, or timestamp is missing from the visible report`);
+    }
   }
   const calendarAfter = await fetch(`${baseUrl}/api/calendar`).then((response) => response.json());
   if (JSON.stringify(calendarBefore.rawEvents) !== JSON.stringify(calendarAfter.rawEvents)) {

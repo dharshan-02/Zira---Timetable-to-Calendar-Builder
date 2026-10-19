@@ -17,6 +17,15 @@ export interface SourceEvidence {
   sourceName: string;
   contentType: string;
   fetchedAt: string;
+  discoveredFrom?: string;
+  selectionReason?: string;
+}
+
+export interface AgentTraceEntry {
+  step: string;
+  status: 'complete' | 'review' | 'waiting';
+  detail: string;
+  tool?: string;
 }
 
 // ─── Extracted Event ───────────────────────────────────────────────────
@@ -139,6 +148,7 @@ export interface Run {
   unparsedRows: UnparsedRow[];
   proposalId?: string;
   verificationReport?: VerificationReport;
+  agentTrace?: AgentTraceEntry[];
   createdAt: string;
   updatedAt: string;
   inputHash: string;
@@ -167,6 +177,7 @@ export interface ScenarioResult {
   scenarioId: string;
   runId: string;
   expected: string;
+  input: string;
   actual: string;
   passed: boolean;
   evidence: string;

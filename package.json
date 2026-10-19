@@ -11,7 +11,9 @@
     "test:api": "node scripts/verify-run-api.mjs",
     "test:samples": "node scripts/verify-timetable-samples.mjs",
     "test:scenarios": "node test-scenarios.mjs",
-    "test:all": "npm run lint && npx tsc --noEmit && npm run test:scenarios && npm run test:api && npm run test:samples"
+    "test:all": "npm run lint && npx tsc --noEmit && npm run test:scenarios && npm run test:api && npm run test:samples",
+    "evidence:demo": "node scripts/capture-demo-evidence.mjs",
+    "test:live-sources": "node scripts/verify-live-sources.mjs"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.22",
@@ -19,6 +21,7 @@
     "@fullcalendar/interaction": "^6.1.22",
     "@fullcalendar/react": "^7.1.3",
     "@fullcalendar/timegrid": "^6.1.22",
+    "cheerio": "^1.2.0",
     "docx": "^9.12.0",
     "exceljs": "^4.4.0",
     "next": "16.4.2",

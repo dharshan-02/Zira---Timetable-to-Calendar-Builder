@@ -68,7 +68,7 @@ export default function ScenarioRunner() {
     return passed ? (
       <span className="px-3.5 py-1 text-xs rounded-full bg-emerald-950 text-emerald-300 font-extrabold border border-emerald-500/60 flex items-center gap-1.5 shadow-lg shadow-emerald-500/20">
         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-        PASSED (100% VERIFIED)
+        PASS · FIXTURE CHECK
       </span>
     ) : (
       <span className="px-3.5 py-1 text-xs rounded-full bg-red-950 text-red-300 font-extrabold border border-red-500/60 shadow-lg shadow-red-500/20">
@@ -92,7 +92,7 @@ export default function ScenarioRunner() {
             Try a few common schedule cases
           </h2>
           <p className="text-xs text-slate-300 max-w-2xl mt-1 leading-relaxed">
-            Run the examples against the same schedule workflow. Each result shows what was detected and which calendar details were checked.
+            Synthetic fixtures exercise the official cases. Results distinguish assertions and isolated simulations from live calendar actions.
           </p>
         </div>
 
@@ -175,11 +175,17 @@ export default function ScenarioRunner() {
               {/* Expanded details: Expected vs Actual comparison & evidence */}
               {isExpanded && (
                 <div className="pt-4 border-t border-slate-800 space-y-4">
+                  {res?.input && (
+                    <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-xl">
+                      <div className="text-[11px] font-semibold uppercase tracking-wider text-sky-300 mb-2">Scenario input · {sc.fixtureFile}</div>
+                      <pre className="text-xs text-slate-300 leading-relaxed font-mono whitespace-pre-wrap max-h-56 overflow-auto">{res.input}</pre>
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Expected Result */}
                     <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-xl">
                       <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400 mb-2 flex items-center gap-1.5">
-                        <span>🎯</span> Mandatory Expected Result
+                        <span>🎯</span> Expected Result
                       </div>
                       <p className="text-xs text-slate-300 leading-relaxed font-mono whitespace-pre-wrap">
                         {sc.expectedResult}
@@ -197,7 +203,7 @@ export default function ScenarioRunner() {
                         </p>
                       ) : (
                         <p className="scenario-actual-copy scenario-actual-hint text-xs italic">
-                          Click &quot;Run {sc.id}&quot; to execute this scenario against the pipeline and record results.
+                          Click &quot;Run {sc.id}&quot; to execute this scenario and record its input, result, and evidence.
                         </p>
                       )}
                     </div>
@@ -207,7 +213,7 @@ export default function ScenarioRunner() {
                   {res?.evidence && (
                     <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
                       <div className="flex items-center justify-between text-xs text-slate-400 font-bold mb-2">
-                        <span>Inspectable Trace Payload (Truthful Evidence)</span>
+                        <span>Evidence and verification details</span>
                         <span className="font-mono text-[10px] text-slate-500">
                           Timestamp: {res.timestamp ? new Date(res.timestamp).toLocaleTimeString() : 'N/A'}
                         </span>
@@ -217,6 +223,7 @@ export default function ScenarioRunner() {
                       </pre>
                     </div>
                   )}
+                  {res && <p className="text-[11px] text-amber-200/80">A pass means the recorded synthetic-fixture assertions succeeded. TC1 and TC3 use isolated calendar simulations; benchmark runs do not write to the shared calendar. TC4 simulates OCR-like garbled text and does not run an OCR model.</p>}
                 </div>
               )}
             </div>

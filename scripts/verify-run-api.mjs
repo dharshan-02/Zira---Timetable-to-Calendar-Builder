@@ -38,6 +38,13 @@ const privateSource = await fetch(`${baseUrl}/api/source`, {
 });
 assert.equal(privateSource.status, 400, 'private-network source URLs should be rejected before connecting');
 
+for (const url of ['', 'http://127.0.0.1:3000/']) {
+  const response = await fetch(`${baseUrl}/api/discover`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url }),
+  });
+  assert.ok(response.status === 400 || response.status === 422, `source discovery should reject empty/private portal URL ${url}`);
+}
+
 for (const url of [
   'http://[ff02::1]/', // IPv6 multicast
   'http://[2001:0::1]/', // special-purpose IPv6 protocol assignment
@@ -107,6 +114,10 @@ const extractionResponse = await fetch(`${baseUrl}/api/extract`, {
 assert.equal(extractionResponse.status, 200, 'pipeline extraction should succeed');
 const extraction = await extractionResponse.json();
 assert.equal(extraction.events.length, 5, 'sample pipeline should extract five sessions');
+assert.ok(extraction.agentTrace?.some((step) => step.tool === 'timetable-parser'), 'agent should return a trace of tools used');
+assert.equal(extraction.agentTrace?.at(-1)?.status, 'waiting', 'agent should wait for human approval before calendar writes');
+const tracedRun = await fetch(`${endpoint}?id=${encodeURIComponent(pipelineRun.id)}`).then((response) => response.json());
+assert.equal(tracedRun.run?.agentTrace?.at(-1)?.status, 'waiting', 'agent trace should persist with the saved run');
 
 const proposalResponse = await fetch(`${baseUrl}/api/propose`, {
   method: 'POST',

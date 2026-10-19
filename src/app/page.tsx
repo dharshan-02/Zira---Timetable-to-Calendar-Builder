@@ -14,6 +14,7 @@ import {
   Run,
   CalendarEvent,
   SourceEvidence,
+  AgentTraceEntry,
 } from '@/lib/types';
 import {
   TC1_FIXTURE,
@@ -24,6 +25,7 @@ import {
 } from '@/lib/scenarios';
 
 type Tab = 'pipeline' | 'scenarios' | 'presentation' | 'history';
+type DiscoveredSource = { id: string; url: string; title: string; kind: 'class' | 'exam' | 'mixed'; score: number; reason: string; sourcePageUrl: string; retrievedAt: string };
 const PUBLIC_TIMETABLE_DEMO = 'https://tcc.tolani.edu/degree-college/digital-timetable/';
 const PUBLIC_GOUNI_LECTURE_SOURCE = 'https://gouni.edu.ng/lecture-time-table/';
 const PUBLIC_GOUNI_EXAM_SOURCE = 'https://gouni.edu.ng/exam-timetable/';
@@ -56,6 +58,10 @@ export default function Home() {
   const [sourceUrl, setSourceUrl] = useState('');
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [sourceEvidence, setSourceEvidence] = useState<SourceEvidence | undefined>();
+  const [portalUrl, setPortalUrl] = useState('');
+  const [discoveredSources, setDiscoveredSources] = useState<DiscoveredSource[]>([]);
+  const [discoveryBusy, setDiscoveryBusy] = useState(false);
+  const [discoveryMessage, setDiscoveryMessage] = useState<string | null>(null);
   const [historySourceNotice, setHistorySourceNotice] = useState<string | null>(null);
   const [activePreset, setActivePreset] = useState<'tc1' | 'tc2' | 'tc3' | 'tc4' | 'exam' | null>('tc2');
 
@@ -67,6 +73,7 @@ export default function Home() {
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [verificationReport, setVerificationReport] = useState<VerificationReport | null>(null);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [agentTrace, setAgentTrace] = useState<AgentTraceEntry[]>([]);
 
   const clearCurrentReview = () => {
     setActiveRunId(null);
@@ -76,6 +83,7 @@ export default function Home() {
     setProposal(null);
     setVerificationReport(null);
     setCalendarEvents([]);
+    setAgentTrace([]);
     setCurrentStep(1);
   };
 
@@ -96,6 +104,33 @@ export default function Home() {
   const selectTab = (tab: Tab) => {
     setActiveTab(tab);
     setMobileNavOpen(false);
+  };
+
+  const discoverPortalSources = async () => {
+    setDiscoveryBusy(true);
+    setDiscoveryMessage(null);
+    setDiscoveredSources([]);
+    try {
+      const response = await fetch('/api/discover', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: portalUrl }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Could not inspect that portal.');
+      const candidates = (data.candidates ?? []).map((candidate: Omit<DiscoveredSource, 'sourcePageUrl' | 'retrievedAt'>) => ({ ...candidate, sourcePageUrl: data.sourcePageUrl, retrievedAt: data.retrievedAt }));
+      setDiscoveredSources(candidates);
+      setDiscoveryMessage(candidates.length ? `Found ${candidates.length} candidate link(s). Select one to review; the agent does not fetch a timetable until you choose it.` : data.warning || 'No timetable links found. Paste a direct page or PDF URL below.');
+    } catch (error) {
+      setDiscoveryMessage(error instanceof Error ? error.message : 'Could not inspect that portal.');
+    } finally {
+      setDiscoveryBusy(false);
+    }
+  };
+
+  const selectDiscoveredSource = (candidate: DiscoveredSource) => {
+    setSourceUrl(candidate.url);
+    setSourceEvidence({ sourceUrl: candidate.url, sourceName: candidate.title, contentType: 'pending retrieval', fetchedAt: candidate.retrievedAt, discoveredFrom: candidate.sourcePageUrl, selectionReason: `${candidate.reason} Candidate score ${candidate.score}/7; selected by the user.` });
+    setDiscoveryMessage(`Selected ${candidate.title}. Fetch it to capture the timetable content and final retrieval time.`);
   };
 
   // Load Presets
@@ -188,7 +223,7 @@ export default function Home() {
         if (!response.ok) throw new Error(data.error || 'Could not retrieve the timetable source.');
         timetableContent = data.content;
         effectiveSourceRef = data.sourceUrl;
-        evidence = { sourceUrl: data.sourceUrl, sourceName: data.title || data.sourceName, contentType: data.contentType, fetchedAt: data.fetchedAt };
+        evidence = { sourceUrl: data.sourceUrl, sourceName: data.title || data.sourceName, contentType: data.contentType, fetchedAt: data.fetchedAt, discoveredFrom: sourceEvidence?.discoveredFrom, selectionReason: sourceEvidence?.selectionReason };
         setRawText(timetableContent);
         setSourceRef(effectiveSourceRef);
         setSourceEvidence(evidence);
@@ -251,6 +286,7 @@ export default function Home() {
       setEvents(dataExtract.events || []);
       setClashes(dataExtract.clashes || []);
       setUnparsedRows(dataExtract.unparsedRows || []);
+      setAgentTrace(dataExtract.agentTrace || []);
       setCurrentStep(4);
       setHistorySourceNotice(null);
 
@@ -327,6 +363,7 @@ export default function Home() {
       setEvents(run.extractedEvents || []);
       setClashes(run.clashes || []);
       setUnparsedRows(run.unparsedRows || []);
+      setAgentTrace(run.agentTrace || []);
       setProposal(data.proposal ?? null);
       setVerificationReport(run.verificationReport ?? null);
       setCalendarEvents([]);
@@ -671,6 +708,29 @@ export default function Home() {
 
                 {sourceType === 'url' && (
                   <div className="source-input-panel">
+                    <div className="source-provenance" role="note">
+                      Organizer target not confirmed: the brief names an “Organiser mock timetable page / PDF” but does not include its URL. Use the organizer URL here when available. The built-in public examples are not claimed to be the permitted target.
+                    </div>
+                    <label className="input-label" htmlFor="portal-url">Find a timetable link from a college portal</label>
+                    <div className="flex gap-2">
+                      <input id="portal-url" type="url" value={portalUrl} onChange={(event) => setPortalUrl(event.target.value)} className="text-input" placeholder="https://college.edu/academics" autoComplete="url" />
+                      <button type="button" className="secondary-button whitespace-nowrap" onClick={discoverPortalSources} disabled={discoveryBusy || !portalUrl}>
+                        {discoveryBusy ? 'Searching…' : 'Find links'}
+                      </button>
+                    </div>
+                    <p className="source-help">The agent inspects public links on this page, ranks likely class and exam sources, and waits for you to select one. It records the portal URL, retrieval time, and reason for the selection.</p>
+                    {discoveryMessage && <p className="source-provenance" role="status">{discoveryMessage}</p>}
+                    {discoveredSources.length > 0 && (
+                      <div className="space-y-2" aria-label="Discovered timetable source candidates">
+                        {discoveredSources.map((candidate) => (
+                          <button key={candidate.id} type="button" className="source-example-link text-left" onClick={() => selectDiscoveredSource(candidate)}>
+                            <span className="font-semibold">{candidate.title}</span> · {candidate.kind} · relevance {candidate.score}/7<br />
+                            <span className="break-all">{candidate.url}</span><br />
+                            <span>{candidate.reason} Retrieved {new Date(candidate.retrievedAt).toLocaleString()} from {candidate.sourcePageUrl}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <label className="input-label" htmlFor="source-url">Public timetable page or PDF URL</label>
                     <input
                       id="source-url"
@@ -687,21 +747,21 @@ export default function Home() {
                       className="source-example-link"
                       onClick={() => { setSourceUrl(PUBLIC_TIMETABLE_DEMO); setSourceEvidence(undefined); }}
                     >
-                      Use public demo source · Tolani College timetable
+                      Public example · Tolani College timetable (not organizer-confirmed)
                     </button>
                     <button
                       type="button"
                       className="source-example-link"
                       onClick={() => { setSourceUrl(PUBLIC_GOUNI_LECTURE_SOURCE); setSourceEvidence(undefined); }}
                     >
-                      Use official source · Godfrey Okoye lecture timetable
+                      Public example · Godfrey Okoye lecture timetable (not organizer-confirmed)
                     </button>
                     <button
                       type="button"
                       className="source-example-link"
                       onClick={() => { setSourceUrl(PUBLIC_GOUNI_EXAM_SOURCE); setSourceEvidence(undefined); }}
                     >
-                      Use official source · Godfrey Okoye exam timetable
+                      Public example · Godfrey Okoye exam timetable (not organizer-confirmed)
                     </button>
                   </div>
                 )}
@@ -806,8 +866,10 @@ export default function Home() {
                   </div>
                   {sourceEvidence && (
                     <p className="source-provenance">
-                      Source checked {new Date(sourceEvidence.fetchedAt).toLocaleString()} · {sourceEvidence.contentType}
+                      {sourceEvidence.contentType === 'pending retrieval' ? 'Candidate discovered' : 'Source retrieved'} {new Date(sourceEvidence.fetchedAt).toLocaleString()} · {sourceEvidence.contentType}
                       {sourceEvidence.sourceUrl ? <> · <a href={sourceEvidence.sourceUrl} target="_blank" rel="noreferrer">Open source</a></> : ` · ${sourceEvidence.sourceName}`}
+                      {sourceEvidence.discoveredFrom && <> · Discovered on <a href={sourceEvidence.discoveredFrom} target="_blank" rel="noreferrer">portal page</a></>}
+                      {sourceEvidence.selectionReason && <> · {sourceEvidence.selectionReason}</>}
                     </p>
                   )}
                 </div>
@@ -831,6 +893,26 @@ export default function Home() {
 
               {/* ── RIGHT COLUMN: Live Agent Intelligence & Calendar ── */}
               <div className="space-y-6">
+                {agentTrace.length > 0 && (
+                  <section className="hud-card p-5" aria-label="Agent activity trace">
+                    <div className="flex items-start justify-between gap-4 mb-4">
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-wider text-emerald-400">Agent activity</div>
+                        <h2 className="text-lg font-bold text-white mt-1">Plan, evidence, and next action</h2>
+                      </div>
+                      <span className="text-[10px] uppercase tracking-wide text-slate-400 border border-slate-700 rounded-full px-2 py-1">Rule-based tools</span>
+                    </div>
+                    <ol className="space-y-3">
+                      {agentTrace.map((entry, index) => (
+                        <li key={`${entry.step}-${index}`} className="flex gap-3 text-sm">
+                          <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${entry.status === 'complete' ? 'bg-emerald-400' : entry.status === 'review' ? 'bg-amber-400' : 'bg-sky-400'}`} />
+                          <div><div className="font-semibold text-slate-200">{entry.step}{entry.tool ? <span className="ml-2 text-[10px] font-mono text-slate-500">{entry.tool}</span> : null}</div><p className="text-xs text-slate-400 mt-0.5">{entry.detail}</p></div>
+                        </li>
+                      ))}
+                    </ol>
+                    <p className="mt-4 border-t border-slate-800 pt-3 text-xs text-amber-200">This agent uses deterministic parsing and comparison tools, not an LLM. Uncertain rows stay visible for human review; calendar changes still require explicit approval.</p>
+                  </section>
+                )}
                 {/* Initial Standby Hero State (Zinc & Emerald Vercel Style) */}
                 {events.length === 0 && !loading && (
                   <div className="hud-card relative overflow-hidden py-16 px-8 sm:px-12 border border-zinc-800 bg-zinc-900/40">

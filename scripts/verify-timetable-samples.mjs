@@ -72,6 +72,28 @@ for (const filename of samples) {
   }
 }
 
+if (process.env.LIVE_SOURCE_TESTS === '1') {
+try {
+  const response = await fetch(`${baseUrl}/api/discover`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ url: 'https://gouni.edu.ng/lecture-time-table/' }),
+  });
+  const data = await response.json();
+  if (!response.ok || !data.sourcePageUrl || !data.retrievedAt || !data.candidates?.length) {
+    throw new Error(data.error ?? `Portal discovery returned no candidates (${response.status})`);
+  }
+  if (!data.candidates.some((candidate) => /\.pdf(?:$|[?#])/i.test(candidate.url))) {
+    throw new Error('Portal discovery did not surface the linked timetable PDFs.');
+  }
+  console.log(`PASS portal discovery example: ${data.candidates.length} candidates ranked from ${data.sourcePageUrl} at ${data.retrievedAt}`);
+} catch (error) {
+  issues.push(error instanceof Error ? error.message : String(error));
+  console.error(`FAIL portal discovery example: ${issues.at(-1)}`);
+}
+} else {
+  console.log('SKIP live portal/source network checks (set LIVE_SOURCE_TESTS=1 to run them)');
+}
+
 try {
   const pasted = await readFile(path.join(root, 'public', 'samples', 'timetables', samples[0]), 'utf8');
   const result = await checkExtraction('pasted timetable', pasted, 'text', 'pasted-timetable.txt');
@@ -95,6 +117,7 @@ try {
   console.error(`FAIL PDF upload: ${issues.at(-1)}`);
 }
 
+if (process.env.LIVE_SOURCE_TESTS === '1') {
 try {
   const response = await fetch(`${baseUrl}/api/source`, {
     method: 'POST',
@@ -110,6 +133,11 @@ try {
   issues.push(error instanceof Error ? error.message : String(error));
   console.error(`FAIL public timetable URL: ${issues.at(-1)}`);
 }
+} else {
+  console.log('SKIP live timetable URL retrieval (set LIVE_SOURCE_TESTS=1 to run it)');
+}
+
+if (process.env.LIVE_SOURCE_TESTS === '1') {
 
 try {
   const response = await fetch(`${baseUrl}/api/source`, {
@@ -135,6 +163,9 @@ try {
 } catch (error) {
   issues.push(error instanceof Error ? error.message : String(error));
   console.error(`FAIL official exam timetable source: ${issues.at(-1)}`);
+}
+} else {
+  console.log('SKIP live timetable and exam PDF URL retrievals (set LIVE_SOURCE_TESTS=1 to run them)');
 }
 
 if (issues.length) process.exitCode = 1;
