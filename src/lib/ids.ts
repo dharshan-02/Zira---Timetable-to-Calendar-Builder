@@ -10,12 +10,12 @@ import { type ExtractedEvent, type StableEventId } from './types';
  */
 export function generateEventId(
   courseCode: string,
+  type: string,
   weekday: string,
-  startTime: string,
-  sourceFile: string,
+  sessionIndex: number = 0,
   examDate?: string
 ): StableEventId {
-  const parts = [courseCode, weekday, startTime, sourceFile];
+  const parts = [courseCode, type, weekday, sessionIndex.toString()];
   if (examDate) parts.push(examDate);
   const raw = parts.join('|').toLowerCase().trim();
   return `evt-${simpleHash(raw)}`;

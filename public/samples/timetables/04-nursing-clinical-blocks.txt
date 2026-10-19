@@ -1,0 +1,7 @@
+# Nursing · Clinical blocks
+Course Code | Course Name | Day | Time | Room | Instructor | Type
+NU201 | Adult Health Nursing | Monday | 08:00 AM - 10:00 AM | N201 | Dr. A. Patel | Lecture
+NU205 | Pharmacology | Tuesday | 10:00 AM - 11:00 AM | N105 | Dr. A. Patel | Lecture
+NU210 | Clinical Practice | Wednesday | 07:00 AM - 11:00 AM | City Clinic | Dr. A. Patel | Practical
+NU215 | Pathophysiology | Thursday | 09:00 AM - 10:00 AM | N202 | Dr. A. Patel | Lecture
+NU220 | Patient Assessment | Friday | 01:00 PM - 03:00 PM | Skills Lab | Dr. A. Patel | Lab

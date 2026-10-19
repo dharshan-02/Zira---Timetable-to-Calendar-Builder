@@ -1,0 +1,8 @@
+# Mixed electives · Overlap review
+Course Code | Course Name | Day | Time | Room | Instructor | Type
+CS210 | Database Systems | Monday | 09:00 AM - 10:00 AM | C201 | Dr. A. Patel | Lecture
+EC205 | Public Finance | Monday | 09:30 AM - 10:30 AM | E110 | Dr. A. Patel | Lecture
+ME215 | Product Design | Tuesday | 11:00 AM - 12:00 PM | M205 | Dr. A. Patel | Lecture
+CS215 | Database Lab | Wednesday | 01:00 PM - 03:00 PM | Lab 2 | Dr. A. Patel | Lab
+EC210 | Economic Policy | Thursday | 10:00 AM - 11:00 AM | E202 | Dr. A. Patel | Seminar
+ME220 | Manufacturing Systems | Friday | 11:00 AM - 12:00 PM | M301 | Dr. A. Patel | Lecture

@@ -1,0 +1,7 @@
+# Engineering · Lab rotation
+Course Code | Course Name | Day | Time | Room | Instructor | Type
+EN201 | Thermodynamics | Monday | 08:00 AM - 09:00 AM | E301 | Dr. A. Patel | Lecture
+ME210 | Engineering Materials | Monday | 09:00 AM - 10:00 AM | E205 | Dr. A. Patel | Lecture
+ME220 | Fluid Mechanics | Tuesday | 10:00 AM - 11:00 AM | E302 | Dr. A. Patel | Lecture
+ME221 | Fluid Mechanics Lab | Wednesday | 01:00 PM - 03:00 PM | Workshop 1 | Dr. A. Patel | Lab
+EE202 | Circuit Analysis | Friday | 11:00 AM - 12:00 PM | E110 | Dr. A. Patel | Lecture

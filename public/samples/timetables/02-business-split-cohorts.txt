@@ -1,0 +1,7 @@
+# Business · Split cohorts
+Course Code | Course Name | Day | Time | Room | Instructor | Type
+BA110 | Principles of Management | Monday | 09:00 AM - 10:00 AM | Hall A | Dr. A. Patel | Lecture
+EC120 | Microeconomics | Monday | 10:00 AM - 11:00 AM | Hall B | Dr. A. Patel | Lecture
+AC130 | Financial Accounting | Tuesday | 11:00 AM - 12:00 PM | C101 | Dr. A. Patel | Lecture
+BA115 | Business Communication | Wednesday | 01:00 PM - 02:00 PM | C104 | Dr. A. Patel | Tutorial
+ST140 | Business Statistics | Thursday | 09:00 AM - 11:00 AM | Lab 3 | Dr. A. Patel | Lab

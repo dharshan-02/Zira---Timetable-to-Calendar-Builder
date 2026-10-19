@@ -1,0 +1,7 @@
+# Data Science · Project studio
+Course Code | Course Name | Day | Time | Room | Instructor | Type
+DS201 | Statistical Learning | Monday | 09:00 AM - 10:00 AM | D302 | Dr. A. Patel | Lecture
+MA220 | Probability Models | Tuesday | 10:00 AM - 11:00 AM | D210 | Dr. A. Patel | Lecture
+DS205 | Data Engineering | Wednesday | 11:00 AM - 12:00 PM | Lab 4 | Dr. A. Patel | Lecture
+DS220 | Applied Machine Learning | Thursday | 01:00 PM - 03:00 PM | Studio 2 | Dr. A. Patel | Lab
+CS230 | Algorithms | Friday | 09:00 AM - 10:00 AM | D101 | Dr. A. Patel | Lecture

@@ -1,0 +1,7 @@
+# Computer Science · Core week
+Course Code | Course Name | Day | Time | Room | Instructor | Type
+CS101 | Programming Fundamentals | Monday | 09:00 AM - 10:00 AM | Lab 2 | Dr. A. Patel | Lecture
+MA105 | Discrete Mathematics | Monday | 11:00 AM - 12:00 PM | B204 | Dr. A. Patel | Lecture
+CS102 | Data Structures | Tuesday | 10:00 AM - 11:00 AM | B206 | Dr. A. Patel | Lecture
+CS103 | Computer Systems Lab | Wednesday | 02:00 PM - 04:00 PM | Lab 1 | Dr. A. Patel | Lab
+CS104 | Web Development | Friday | 09:00 AM - 10:00 AM | B210 | Dr. A. Patel | Lecture

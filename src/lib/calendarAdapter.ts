@@ -1,12 +1,13 @@
 // ─── Mock Calendar Adapter ─────────────────────────────────────────────
-// Writes events to in-memory store (backed by our global store).
-// Reads them back for verification. Generates .ics files.
+// Writes events to persistent local demo storage, reads them back for audit,
+// and generates standards-based .ics files. It does not connect to a vendor.
 // No paid calendar API required.
 
-import { type CalendarEvent, type ExtractedEvent, type EventType } from './types';
+import { type CalendarEvent, type ExtractedEvent } from './types';
+import { loadRecords, saveRecords } from './persistence';
 
-// ─── In-memory calendar store (mock Google Calendar / Outlook) ─────────
-const calendarStore = new Map<string, CalendarEvent>();
+// ─── Persistent local calendar store ──────────────────────────────────
+const calendarStore = new Map(loadRecords<CalendarEvent>('calendar-events.json').map((event) => [event.id, event]));
 
 /**
  * Write events to the mock calendar.
@@ -40,6 +41,8 @@ export function writeEvents(events: ExtractedEvent[]): CalendarEvent[] {
     written.push(calEvent);
   }
 
+  saveRecords('calendar-events.json', calendarStore.values());
+
   return written;
 }
 
@@ -69,6 +72,7 @@ export function deleteEvents(eventIds: string[]): void {
   for (const id of eventIds) {
     calendarStore.delete(id);
   }
+  saveRecords('calendar-events.json', calendarStore.values());
 }
 
 /**
@@ -76,6 +80,7 @@ export function deleteEvents(eventIds: string[]): void {
  */
 export function clearCalendar(): void {
   calendarStore.clear();
+  saveRecords('calendar-events.json', []);
 }
 
 /**

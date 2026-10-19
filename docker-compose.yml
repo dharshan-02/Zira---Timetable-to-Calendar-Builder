@@ -1,0 +1,15 @@
+services:
+  weekline:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATA_DIR: /app/data
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+    volumes:
+      - weekline-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  weekline-data:

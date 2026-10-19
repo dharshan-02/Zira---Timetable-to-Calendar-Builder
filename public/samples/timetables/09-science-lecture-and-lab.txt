@@ -1,0 +1,7 @@
+# Science · Lecture and lab
+Course Code | Course Name | Day | Time | Room | Instructor | Type
+BI101 | Cell Biology | Monday | 08:00 AM - 09:00 AM | S101 | Dr. A. Patel | Lecture
+CH110 | General Chemistry | Tuesday | 09:00 AM - 10:00 AM | S201 | Dr. A. Patel | Lecture
+CH111 | Chemistry Lab | Tuesday | 01:00 PM - 03:00 PM | Lab C | Dr. A. Patel | Lab
+PH120 | Mechanics | Wednesday | 10:00 AM - 11:00 AM | S105 | Dr. A. Patel | Lecture
+BI115 | Genetics | Friday | 11:00 AM - 12:00 PM | S108 | Dr. A. Patel | Lecture

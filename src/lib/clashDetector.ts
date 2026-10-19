@@ -24,7 +24,7 @@ export function detectClashes(events: ExtractedEvent[]): ClashDetectionResult {
   // Group events by day for efficient comparison
   const byDay = new Map<string, ExtractedEvent[]>();
   for (const event of events) {
-    const day = event.weekday;
+    const day = event.examDate ? `exam:${event.examDate}` : event.weekday;
     if (!byDay.has(day)) byDay.set(day, []);
     byDay.get(day)!.push(event);
   }
@@ -45,7 +45,7 @@ export function detectClashes(events: ExtractedEvent[]): ClashDetectionResult {
             eventB: b.id,
             eventALabel: `${a.courseCode} (${a.type}${a.isElective ? ', elective' : ''})`,
             eventBLabel: `${b.courseCode} (${b.type}${b.isElective ? ', elective' : ''})`,
-            day,
+            day: a.examDate ? `Exam Day (${a.examDate})` : day,
             overlapStart: overlap.start,
             overlapEnd: overlap.end,
             reason: buildClashReason(a, b, overlap),
@@ -56,38 +56,6 @@ export function detectClashes(events: ExtractedEvent[]): ClashDetectionResult {
             `CLASH: ${a.courseCode} (${a.startTime}-${a.endTime}) overlaps with ` +
             `${b.courseCode} (${b.startTime}-${b.endTime}) on ${day} ` +
             `[overlap: ${overlap.start}-${overlap.end}]`
-          );
-        }
-      }
-    }
-  }
-
-  // Also check exam date clashes
-  const examEvents = events.filter(e => e.examDate);
-  for (let i = 0; i < examEvents.length; i++) {
-    for (let j = i + 1; j < examEvents.length; j++) {
-      totalComparisons++;
-      const a = examEvents[i];
-      const b = examEvents[j];
-
-      if (a.examDate === b.examDate) {
-        const overlap = findOverlap(a.startTime, a.endTime, b.startTime, b.endTime);
-        if (overlap) {
-          const clash: Clash = {
-            id: generateClashId(),
-            eventA: a.id,
-            eventB: b.id,
-            eventALabel: `${a.courseCode} Exam`,
-            eventBLabel: `${b.courseCode} Exam`,
-            day: `Exam Day (${a.examDate})`,
-            overlapStart: overlap.start,
-            overlapEnd: overlap.end,
-            reason: `Exam time clash on ${a.examDate}`,
-            evidence: `${a.courseCode} exam (${a.startTime}-${a.endTime}) conflicts with ${b.courseCode} exam (${b.startTime}-${b.endTime}) on ${a.examDate}`,
-          };
-          clashes.push(clash);
-          evidence.push(
-            `EXAM CLASH: ${a.courseCode} and ${b.courseCode} exams overlap on ${a.examDate}`
           );
         }
       }

@@ -1,0 +1,7 @@
+# Arts · Seminar week
+Course Code | Course Name | Day | Time | Room | Instructor | Type
+AR101 | Critical Reading | Monday | 10:00 AM - 11:00 AM | A12 | Dr. A. Patel | Lecture
+EN130 | Modern Literature | Tuesday | 11:00 AM - 12:00 PM | A14 | Dr. A. Patel | Seminar
+HI115 | World History | Wednesday | 09:00 AM - 10:00 AM | A10 | Dr. A. Patel | Lecture
+AR140 | Research Methods | Thursday | 01:00 PM - 02:00 PM | A15 | Dr. A. Patel | Tutorial
+PH120 | Ethics and Society | Friday | 10:00 AM - 11:00 AM | A12 | Dr. A. Patel | Seminar

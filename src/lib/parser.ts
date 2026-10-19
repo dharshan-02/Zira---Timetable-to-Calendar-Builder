@@ -25,16 +25,20 @@ export interface ParseResult {
   method: 'text' | 'pdf-text' | 'ocr' | 'mock';
 }
 
-// Time pattern: HH:MM or H:MM, with optional AM/PM
-const TIME_PATTERN = /\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?/;
+// Accept clock ranges with explicit or omitted AM/PM. Omitted meridiem is
+// inferred as a daytime slot and kept at medium confidence for human review.
+export const EXPLICIT_TIME_RANGE_PATTERN = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*(?:-|–|—|to)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i;
+export const INFERRED_TIME_RANGE_PATTERN = /\b(\d{1,2})(?::(\d{2}))?\s*(?:-|–|—|to)\s*(\d{1,2})(?::(\d{2}))?\b/i;
+const TIME_PATTERN = /\b\d{1,2}:\d{2}\s*(?:AM|PM)?\b|\b\d{1,2}\s*(?:AM|PM)\s*(?:-|–|—|to)\s*\d{1,2}(?::\d{2})?\s*(?:AM|PM)?\b|\b\d{1,2}(?::\d{2})?\s*(?:-|–|—|to)\s*\d{1,2}(?::\d{2})?\s*(?:AM|PM)\b/i;
 
 // Day pattern
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+              'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays', 'Sundays',
               'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAY_PATTERN = new RegExp(`\\b(${DAYS.join('|')})\\b`, 'i');
 
 // Course code pattern: 2-4 uppercase letters followed by digits (e.g. CS101, MATH201)
-const COURSE_CODE_PATTERN = /\b[A-Z]{2,4}\d{2,4}\b/;
+const COURSE_CODE_PATTERN = /(?<![A-Z])[A-Z]{2,4}\s*\d{2,4}\b/;
 
 /**
  * Parse text content (from PDF extraction or direct input) into structured rows.
@@ -47,6 +51,9 @@ export function parseTextContent(content: string, sourceFile: string): ParseResu
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const rowNumber = i + 1;
+
+    // Sample files use Markdown-style headings for their human-readable title.
+    if (/^#\s/.test(line)) continue;
 
     // Skip obviously empty or separator lines
     if (line.match(/^[-=_\s]+$/) || line.length < 3) continue;
@@ -69,7 +76,10 @@ export function parseTextContent(content: string, sourceFile: string): ParseResu
 
     // Try to parse as a timetable row
     const columns = splitColumns(line);
-    const hasTime = TIME_PATTERN.test(line);
+    const timeRange = line.match(EXPLICIT_TIME_RANGE_PATTERN);
+    const hasExplicitTime = TIME_PATTERN.test(line);
+    const hasInferredTime = INFERRED_TIME_RANGE_PATTERN.test(line);
+    const hasTime = Boolean(timeRange) || hasExplicitTime || hasInferredTime;
     const hasDay = DAY_PATTERN.test(line);
     const hasCourseCode = COURSE_CODE_PATTERN.test(line);
 
@@ -77,8 +87,12 @@ export function parseTextContent(content: string, sourceFile: string): ParseResu
     const parseNotes: string[] = [];
 
     if (hasCourseCode && hasDay && hasTime) {
-      confidence = 'high';
+      const abbreviatedMeridiem = timeRange && Boolean(timeRange[3] || timeRange[6]) && (!timeRange[3] || !timeRange[6]);
+      const inferredMeridiem = timeRange && !timeRange[3] && !timeRange[6];
+      confidence = abbreviatedMeridiem || inferredMeridiem ? 'medium' : 'high';
       parseNotes.push('Contains course code, day, and time');
+      if (abbreviatedMeridiem) parseNotes.push('AM/PM is shared across the range; confirm the inferred time');
+      if (inferredMeridiem) parseNotes.push('AM/PM is not printed; daytime hours are inferred and need confirmation');
     } else if ((hasCourseCode || hasDay) && hasTime) {
       confidence = 'medium';
       if (!hasCourseCode) parseNotes.push('Missing course code');

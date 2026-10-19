@@ -1,0 +1,7 @@
+# Architecture · Studio week
+Course Code | Course Name | Day | Time | Room | Instructor | Type
+AR201 | Design Principles | Monday | 09:00 AM - 11:00 AM | Studio A | Dr. A. Patel | Studio
+AR210 | Building Technology | Tuesday | 10:00 AM - 11:00 AM | A305 | Dr. A. Patel | Lecture
+AR220 | Architectural History | Wednesday | 11:00 AM - 12:00 PM | A202 | Dr. A. Patel | Lecture
+AR225 | Model Making | Thursday | 01:00 PM - 04:00 PM | Workshop 2 | Dr. A. Patel | Practical
+AR230 | Environmental Design | Friday | 09:00 AM - 10:00 AM | A301 | Dr. A. Patel | Lecture

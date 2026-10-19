@@ -21,7 +21,7 @@ export function verifyEvents(
   const results: VerificationResult[] = [];
 
   for (const proposed of proposedEvents) {
-    const actual = calendarEvents.get(proposed.id);
+    const actual = calendarEvents.get(proposed.id) ?? null;
     const result = compareEvent(proposed, actual);
     results.push(result);
   }

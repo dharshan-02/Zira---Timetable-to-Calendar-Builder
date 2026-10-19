@@ -6,9 +6,17 @@ export interface StudentInput {
   id: string;
   section: string;
   electives: string[];
-  sourceType: 'url' | 'pdf' | 'mock';
+  sourceType: 'url' | 'pdf' | 'mock' | 'text';
   sourceRef: string; // URL or filename
   uploadedAt: string; // ISO timestamp
+  sourceEvidence?: SourceEvidence;
+}
+
+export interface SourceEvidence {
+  sourceUrl: string | null;
+  sourceName: string;
+  contentType: string;
+  fetchedAt: string;
 }
 
 // ─── Extracted Event ───────────────────────────────────────────────────
@@ -122,6 +130,9 @@ export interface Run {
   id: string;
   scenarioId?: string;
   input: StudentInput;
+  /** Extracted or entered source text retained for reopening this review. */
+  sourceSnapshot?: string;
+  sourceSnapshotTruncated?: boolean;
   status: RunStatus;
   extractedEvents: ExtractedEvent[];
   clashes: Clash[];

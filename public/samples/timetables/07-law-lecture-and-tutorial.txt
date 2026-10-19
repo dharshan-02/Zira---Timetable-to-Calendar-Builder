@@ -1,0 +1,7 @@
+# Law · Lecture and tutorial
+Course Code | Course Name | Day | Time | Room | Instructor | Type
+LW101 | Legal Systems | Monday | 09:00 AM - 10:00 AM | Moot 1 | Dr. A. Patel | Lecture
+LW115 | Contract Law | Tuesday | 10:00 AM - 11:00 AM | L204 | Dr. A. Patel | Lecture
+LW120 | Constitutional Law | Wednesday | 11:00 AM - 12:00 PM | L201 | Dr. A. Patel | Lecture
+LW125 | Legal Writing | Thursday | 01:00 PM - 02:00 PM | L110 | Dr. A. Patel | Tutorial
+LW130 | Criminal Law | Friday | 10:00 AM - 11:00 AM | Moot 2 | Dr. A. Patel | Seminar
