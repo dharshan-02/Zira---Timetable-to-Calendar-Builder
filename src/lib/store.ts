@@ -92,11 +92,14 @@ export function getProposal(proposalId: string): Proposal | null {
 
 export function approveProposal(proposalId: string): Proposal | null {
   const proposal = proposals.get(proposalId);
-  if (!proposal) return null;
-  proposal.status = 'approved';
-  proposal.approvedAt = new Date().toISOString();
-  saveRecords('proposals.json', proposals.values());
-  return proposal;
+  if (!proposal || proposal.status !== 'pending') return null;
+  const approved: Proposal = { ...proposal, status: 'approved', approvedAt: new Date().toISOString() };
+  const nextRecords = Array.from(proposals.values(), (item) => item.id === proposalId ? approved : item);
+  // Persist the new state before mutating memory. If disk storage fails, the
+  // pending proposal remains retryable in this process as well.
+  saveRecords('proposals.json', nextRecords);
+  proposals.set(proposalId, approved);
+  return approved;
 }
 
 export function getAllProposals(): Proposal[] {

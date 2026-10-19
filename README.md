@@ -14,7 +14,7 @@
 - **Audit clashes:** flag overlapping sessions and highlight unreadable or unparsed rows with their source evidence.
 - **Preview changes:** compare proposed new, updated, unchanged, and removed calendar entries before anything is written.
 - **Approve deliberately:** approve the proposal to write it to the local demo calendar, then independently read the entries back for verification.
-- **Keep an audit trail:** reopen saved reviews from Review history and export verified calendar entries as `.ics`.
+- **Keep an audit trail:** reopen saved reviews from Review history and export approved calendar entries as `.ics`, `.xlsx`, `.docx`, or `.pdf`.
 - **Explore scenarios:** run the four benchmark cases (TC1–TC4) and try ten synthetic timetable examples.
 
 ## Workflow
@@ -37,7 +37,7 @@ Every review retains its source snapshot, parsed sessions, clash evidence, propo
 | Scanned or image-only PDF | Limited | Requires OCR or manual transcription; image-only PDFs are not silently treated as readable text. |
 | Login-protected or JavaScript-only source | No | Use an authorized export or paste the timetable text instead. |
 
-Timetable layouts vary. Weekline keeps rows it cannot confidently parse visible for human review; extracted times and course details should be checked against the source before approval. A public demo PDF is included at [`public/samples/Godfrey-Okoye-University-FCIT-Lecture-Timetable-2026-2027.pdf`](public/samples/Godfrey-Okoye-University-FCIT-Lecture-Timetable-2026-2027.pdf). Its source is the [Godfrey Okoye University timetable page](https://gouni.edu.ng/lecture-time-table/).
+Timetable layouts vary. Weekline keeps rows it cannot confidently parse visible for human review; extracted times and course details should be checked against the source before approval. The source picker includes official [Godfrey Okoye University lecture timetable](https://gouni.edu.ng/lecture-time-table/) and [exam timetable](https://gouni.edu.ng/exam-timetable/) pages. When a page is fetched, the final URL, source name, content type, and retrieval time are attached to its saved review. The official exam PDF currently uses a date-column matrix; it is retained as source evidence, but ambiguous course/date cells still require a human to map them before approval. A public lecture timetable PDF is also included at [`public/samples/Godfrey-Okoye-University-FCIT-Lecture-Timetable-2026-2027.pdf`](public/samples/Godfrey-Okoye-University-FCIT-Lecture-Timetable-2026-2027.pdf).
 
 ## Tech stack
 
@@ -46,6 +46,7 @@ Timetable layouts vary. Weekline keeps rows it cannot confidently parse visible 
 - Tailwind CSS
 - PDF.js for selectable-text PDF extraction
 - FullCalendar for weekly calendar views
+- ExcelJS, docx, and pdf-lib for Excel, Word, and PDF calendar exports
 - JSON file persistence for the single-instance demo deployment
 
 ## Run locally
@@ -73,12 +74,10 @@ Start the app with `npm run dev`, then run the checks from another terminal:
 ```bash
 npm run lint
 npx tsc --noEmit
-npm run test:api
-npm run test:samples
-npm run test:scenarios
+npm run test:all
 ```
 
-The API, sample, and scenario scripts use `http://localhost:3000` by default. Set `BASE_URL` to point them at another running instance.
+The API, sample, and scenario scripts use `http://localhost:3000` by default. Set `BASE_URL` to point them at another running instance. For a password-protected deployment, set `AUTHORIZATION` to its Basic Auth header value when running the scripts.
 
 ## Run in Docker
 
@@ -104,8 +103,9 @@ The app requires a **Web Service** because it uses server-side API routes. Deplo
    | `DATA_DIR` | `/app/data` |
    | `PORT` | `10000` |
 
-5. To retain review history across deploys and restarts, attach a persistent disk mounted at `/app/data`. Render persistent disks require a paid service.
-6. Create the service, wait for deployment, and open its `onrender.com` URL. Run TC1–TC4 and check PDF intake, approval, history, and `.ics` export.
+5. Set `WORKSPACE_PASSWORD` to a long, random password (and optionally `WORKSPACE_USERNAME`; it defaults to `weekline`) in Render's Environment settings. The app returns HTTP 503 in production if the password is missing, so the shared workspace cannot be exposed by an incomplete setup. The browser will request Basic Auth credentials when you open the service.
+6. To retain review history across deploys and restarts, attach a persistent disk mounted at `/app/data`. Render persistent disks require a paid service.
+7. Create the service, wait for deployment, and open its `onrender.com` URL. Run TC1–TC4 and check PDF intake, approval, history, and all calendar exports.
 
 See Render's [Docker deployment guide](https://render.com/docs/docker) and [persistent disk guide](https://render.com/docs/disks) for current platform details.
 
@@ -114,8 +114,9 @@ See Render's [Docker deployment guide](https://render.com/docs/docker) and [pers
 - Review records and demo-calendar entries are stored as JSON under `.data` by default. Set `DATA_DIR` to change the location.
 - Only files written under the persistent disk mount survive a Render deploy or restart. Without a disk, treat saved history as temporary.
 - JSON persistence is designed for one application instance. Use a shared database before scaling to multiple instances.
-- The demo has no sign-in or per-user data separation. Anyone with access to a public deployment may use its shared workspace. Use synthetic or non-sensitive data.
-- Public URL fetching is restricted to public internet addresses and rejects local/private network targets.
+- The demo uses one password-protected shared workspace, not per-user data separation. Use synthetic or non-sensitive data and do not reuse a personal password.
+- Public URL fetching rejects local/private targets, validates each redirect, and pins the HTTP connection to the exact public IP address that was validated.
+- TC1–TC4 use synthetic fixture data. Running them records the source fixture, actual result, and evidence but does not write to or clear the shared calendar. Approve a real timetable proposal explicitly before calendar writes.
 - Weekline does not directly write to Google Calendar or Outlook. Use the `.ics` export to import events into a calendar you control.
 
 ## Repository layout

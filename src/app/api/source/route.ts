@@ -1,5 +1,8 @@
 import { lookup } from 'node:dns/promises';
+import { request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
 import { isIP } from 'node:net';
+import type { LookupFunction } from 'node:net';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const maxDuration = 30;
@@ -44,11 +47,11 @@ export async function POST(request: NextRequest) {
 
     const { response, resolvedUrl } = await fetchPublicUrl(inputUrl);
     const responseType = (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
-    if (!response.ok) {
+    if (response.status < 200 || response.status >= 300) {
       return NextResponse.json({ error: `The source returned HTTP ${response.status}.` }, { status: 502 });
     }
 
-    const bytes = await readLimitedBody(response, MAX_SOURCE_BYTES);
+    const bytes = response.body;
     let extracted: { content: string; title: string; warning?: string };
     if (responseType === 'application/pdf' || resolvedUrl.pathname.toLowerCase().endsWith('.pdf')) {
       extracted = await extractPdfText(bytes);
@@ -87,22 +90,18 @@ async function fetchPublicUrl(input: string) {
   }
 
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects++) {
-    await assertPublicHost(current);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12_000);
-    let response: Response;
-    try {
-      response = await fetch(current, {
-        redirect: 'manual',
-        signal: controller.signal,
-        headers: { Accept: 'text/html, application/xhtml+xml, application/pdf, text/plain, text/csv;q=0.9' },
-      });
-    } catch (error) {
-      if (controller.signal.aborted) throw new SourceError('The source took too long to respond.', 504);
-      throw new SourceError(error instanceof Error ? `Could not fetch source: ${error.message}` : 'Could not fetch source.', 502);
-    } finally {
-      clearTimeout(timeout);
+    const addresses = await resolvePublicAddresses(current);
+    let response: Awaited<ReturnType<typeof requestPinnedUrl>> | undefined;
+    let lastError: unknown;
+    for (const address of addresses.slice(0, 2)) {
+      try {
+        response = await requestPinnedUrl(current, address);
+        break;
+      } catch (error) {
+        lastError = error;
+      }
     }
+    if (!response) throw lastError instanceof Error ? lastError : new SourceError('Could not fetch source.', 502);
 
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get('location');
@@ -116,7 +115,7 @@ async function fetchPublicUrl(input: string) {
   throw new SourceError('The source could not be reached.', 502);
 }
 
-async function assertPublicHost(url: URL) {
+async function resolvePublicAddresses(url: URL) {
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
     throw new SourceError('Only HTTP and HTTPS sources are supported.', 400);
   }
@@ -127,12 +126,68 @@ async function assertPublicHost(url: URL) {
     throw new SourceError('Private and local network sources are not allowed.', 400);
   }
 
-  const addresses = isIP(hostname)
+  const resolved = isIP(hostname)
     ? [{ address: hostname }]
     : await lookup(hostname, { all: true, verbatim: true }).catch(() => []);
-  if (!addresses.length || addresses.some(({ address }) => !isPublicAddress(address))) {
+  if (!resolved.length || resolved.some(({ address }) => !isPublicAddress(address))) {
     throw new SourceError('This URL does not resolve to a public internet address.', 400);
   }
+  return resolved.map(({ address }) => address).sort((a, b) => isIP(a) - isIP(b));
+}
+
+function requestPinnedUrl(url: URL, address: string): Promise<{ status: number; headers: Headers; body: Uint8Array }> {
+  return new Promise((resolve, reject) => {
+    const transport = url.protocol === 'https:' ? httpsRequest : httpRequest;
+    const hostname = url.hostname.replace(/^\[|\]$/g, '');
+    const lookupPinned: LookupFunction = (_: string, options, callback) => {
+      const family = isIP(address);
+      if (typeof options === 'object' && options.all) {
+        callback(null, [{ address, family }]);
+      } else {
+        callback(null, address, family);
+      }
+    };
+    const request = transport(url, {
+      method: 'GET',
+      headers: { Accept: 'text/html, application/xhtml+xml, application/pdf, text/plain, text/csv;q=0.9' },
+      lookup: lookupPinned,
+      ...(url.protocol === 'https:' && isIP(hostname) === 0 ? { servername: hostname } : {}),
+    }, (response) => {
+      const chunks: Buffer[] = [];
+      let size = 0;
+      const length = Number(response.headers['content-length']);
+      if (Number.isFinite(length) && length > MAX_SOURCE_BYTES) {
+        request.destroy(new SourceError('The source is larger than the 12 MB limit.', 413));
+        return;
+      }
+      response.on('data', (chunk: Buffer | string) => {
+        const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        size += bytes.length;
+        if (size > MAX_SOURCE_BYTES) {
+          request.destroy(new SourceError('The source is larger than the 12 MB limit.', 413));
+          return;
+        }
+        chunks.push(bytes);
+      });
+      response.on('end', () => {
+        clearTimeout(deadline);
+        const headers = new Headers();
+        for (const [key, value] of Object.entries(response.headers)) {
+          if (typeof value === 'string') headers.set(key, value);
+          else if (Array.isArray(value)) headers.set(key, value.join(', '));
+        }
+        resolve({ status: response.statusCode ?? 502, headers, body: new Uint8Array(Buffer.concat(chunks)) });
+      });
+      response.on('error', (error) => { clearTimeout(deadline); reject(error); });
+    });
+    const deadline = setTimeout(() => request.destroy(new SourceError('The source took too long to respond.', 504)), 12_000);
+    request.setTimeout(12_000, () => request.destroy(new SourceError('The source took too long to respond.', 504)));
+    request.on('error', (error) => {
+      clearTimeout(deadline);
+      reject(error instanceof SourceError ? error : new SourceError(`Could not fetch source: ${error.message}`, 502));
+    });
+    request.end();
+  });
 }
 
 function isPublicAddress(address: string) {
@@ -155,33 +210,6 @@ function isPublicAddress(address: string) {
   if (/^(64:ff9b|2002:)/.test(normalized)) return false;
   if (/^(2001:db8|2001:0db8)/.test(normalized)) return false;
   return isIP(normalized) === 6;
-}
-
-async function readLimitedBody(response: Response, limit: number) {
-  const length = Number(response.headers.get('content-length'));
-  if (Number.isFinite(length) && length > limit) throw new SourceError('The source is larger than the 12 MB limit.', 413);
-  if (!response.body) throw new SourceError('The source did not contain a response body.', 502);
-
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > limit) {
-      await reader.cancel();
-      throw new SourceError('The source is larger than the 12 MB limit.', 413);
-    }
-    chunks.push(value);
-  }
-  const result = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return result;
 }
 
 async function extractPdfText(data: Uint8Array) {

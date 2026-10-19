@@ -25,6 +25,8 @@ import {
 
 type Tab = 'pipeline' | 'scenarios' | 'presentation' | 'history';
 const PUBLIC_TIMETABLE_DEMO = 'https://tcc.tolani.edu/degree-college/digital-timetable/';
+const PUBLIC_GOUNI_LECTURE_SOURCE = 'https://gouni.edu.ng/lecture-time-table/';
+const PUBLIC_GOUNI_EXAM_SOURCE = 'https://gouni.edu.ng/exam-timetable/';
 const TIMETABLE_SAMPLES = [
   ['01', 'Computer Science · core week'],
   ['02', 'Business · split cohorts'],
@@ -679,13 +681,27 @@ export default function Home() {
                       placeholder="https://college.edu/timetable"
                       autoComplete="url"
                     />
-                    <p className="source-help">Public HTML, text, or PDF sources are fetched server-side. Private, login-protected, and image-only sources need manual review.</p>
+                    <p className="source-help">Public HTML, text, and PDF sources are fetched server-side and saved with their source URL and retrieval time. Matrix-style exam PDFs may need manual review if dates and sessions cannot be matched confidently.</p>
                     <button
                       type="button"
                       className="source-example-link"
                       onClick={() => { setSourceUrl(PUBLIC_TIMETABLE_DEMO); setSourceEvidence(undefined); }}
                     >
                       Use public demo source · Tolani College timetable
+                    </button>
+                    <button
+                      type="button"
+                      className="source-example-link"
+                      onClick={() => { setSourceUrl(PUBLIC_GOUNI_LECTURE_SOURCE); setSourceEvidence(undefined); }}
+                    >
+                      Use official source · Godfrey Okoye lecture timetable
+                    </button>
+                    <button
+                      type="button"
+                      className="source-example-link"
+                      onClick={() => { setSourceUrl(PUBLIC_GOUNI_EXAM_SOURCE); setSourceEvidence(undefined); }}
+                    >
+                      Use official source · Godfrey Okoye exam timetable
                     </button>
                   </div>
                 )}

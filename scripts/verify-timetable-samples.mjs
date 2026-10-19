@@ -4,6 +4,12 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const baseUrl = process.env.BASE_URL ?? 'http://localhost:3000';
+const originalFetch = globalThis.fetch;
+globalThis.fetch = (input, init = {}) => {
+  const headers = new Headers(init.headers);
+  if (process.env.AUTHORIZATION) headers.set('authorization', process.env.AUTHORIZATION);
+  return originalFetch(input, { ...init, headers });
+};
 const samples = [
   '01-computer-science-core-week.txt',
   '02-business-split-cohorts.txt',
@@ -18,11 +24,11 @@ const samples = [
 ];
 const issues = [];
 
-async function checkExtraction(label, content, sourceType, sourceRef) {
+async function checkExtraction(label, content, sourceType, sourceRef, sourceEvidence) {
   const runResponse = await fetch(`${baseUrl}/api/run`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ section: 'A', electives: [], sourceType, sourceRef, sourceSnapshot: content }),
+    body: JSON.stringify({ section: 'A', electives: [], sourceType, sourceRef, sourceSnapshot: content, sourceEvidence }),
   });
   const runData = await runResponse.json();
   if (!runResponse.ok) throw new Error(`${label}: run creation failed (${runResponse.status}): ${runData.error}`);
@@ -46,7 +52,8 @@ async function checkExtraction(label, content, sourceType, sourceRef) {
   }
   const detailResponse = await fetch(`${baseUrl}/api/run?id=${encodeURIComponent(runData.run.id)}`);
   const detail = await detailResponse.json();
-  if (!detailResponse.ok || detail.run?.sourceSnapshot !== content || detail.proposal?.id !== proposalData.proposal.id) {
+  if (!detailResponse.ok || detail.run?.sourceSnapshot !== content || detail.proposal?.id !== proposalData.proposal.id ||
+      (sourceEvidence && detail.run?.input?.sourceEvidence?.sourceUrl !== sourceEvidence.sourceUrl)) {
     throw new Error(`${label}: saved source snapshot or proposal could not be reopened`);
   }
   return { events: data.events.length, unparsed: data.unparsedRows?.length ?? 0 };
@@ -96,11 +103,38 @@ try {
   });
   const data = await response.json();
   if (!response.ok || !data.content?.trim()) throw new Error(data.error ?? `Public URL failed (${response.status})`);
-  const result = await checkExtraction('public timetable URL', data.content, 'url', data.sourceUrl);
+  const evidence = { sourceUrl: data.sourceUrl, sourceName: data.title || data.sourceName, contentType: data.contentType, fetchedAt: data.fetchedAt };
+  const result = await checkExtraction('public timetable URL', data.content, 'url', data.sourceUrl, evidence);
   console.log(`PASS public timetable URL: ${data.content.length} characters, ${result.events} events, ${result.unparsed} unparsed`);
 } catch (error) {
   issues.push(error instanceof Error ? error.message : String(error));
   console.error(`FAIL public timetable URL: ${issues.at(-1)}`);
+}
+
+try {
+  const response = await fetch(`${baseUrl}/api/source`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ url: 'https://gouni.edu.ng/wp-content/uploads/2026/06/FaCIT-3.pdf' }),
+  });
+  const source = await response.json();
+  if (!response.ok || !source.content?.trim() || source.contentType !== 'application/pdf') {
+    throw new Error(source.error ?? `Official exam timetable PDF intake failed (${response.status})`);
+  }
+  const evidence = { sourceUrl: source.sourceUrl, sourceName: source.title, contentType: source.contentType, fetchedAt: source.fetchedAt };
+  const runResponse = await fetch(`${baseUrl}/api/run`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ section: 'A', electives: [], sourceType: 'url', sourceRef: source.sourceUrl, sourceEvidence: evidence, sourceSnapshot: source.content }),
+  });
+  const created = await runResponse.json();
+  const reopened = await fetch(`${baseUrl}/api/run?id=${encodeURIComponent(created.run.id)}`).then((r) => r.json());
+  if (!runResponse.ok || reopened.run?.input?.sourceEvidence?.sourceUrl !== source.sourceUrl || reopened.run?.sourceSnapshot !== source.content) {
+    throw new Error('Official exam source URL and extraction snapshot were not retained on the saved review.');
+  }
+  console.log(`PASS official exam timetable source evidence: ${source.content.length} characters, URL and retrieval metadata retained`);
+} catch (error) {
+  issues.push(error instanceof Error ? error.message : String(error));
+  console.error(`FAIL official exam timetable source: ${issues.at(-1)}`);
 }
 
 if (issues.length) process.exitCode = 1;

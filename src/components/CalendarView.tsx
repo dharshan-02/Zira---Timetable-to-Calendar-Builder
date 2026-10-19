@@ -69,12 +69,15 @@ export default function CalendarView({ events, icsDownloadUrl }: CalendarViewPro
       <div className="calendar-toolbar flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-900/70 border border-slate-800 rounded-2xl backdrop-blur-md">
         <div className="calendar-controls flex items-center gap-2">
           <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
-          <h3 className="font-semibold text-slate-100 text-sm tracking-wide">
-            Live Calendar Adapter ({events.length} schedule entries)
-          </h3>
+          <div>
+            <h3 className="font-semibold text-slate-100 text-sm tracking-wide">
+              Live Calendar Adapter ({events.length} schedule entries)
+            </h3>
+            <p className="mt-1 text-[11px] text-slate-400">Downloads contain approved entries saved to the calendar.</p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
             <button
               onClick={() => setViewMode('grid')}
@@ -98,6 +101,9 @@ export default function CalendarView({ events, icsDownloadUrl }: CalendarViewPro
             </button>
           </div>
 
+          <a href="/api/calendar?format=xlsx" className="calendar-export-link" aria-label="Download approved timetable as Excel spreadsheet">Excel .xlsx</a>
+          <a href="/api/calendar?format=docx" className="calendar-export-link" aria-label="Download approved timetable as Word document">Word .docx</a>
+          <a href="/api/calendar?format=pdf" className="calendar-export-link" aria-label="Download approved timetable as PDF">PDF</a>
           <a
             href={icsDownloadUrl || '/api/calendar?format=ics'}
             download="timetable.ics"
@@ -106,7 +112,7 @@ export default function CalendarView({ events, icsDownloadUrl }: CalendarViewPro
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            Download .ICS
+            ICS
           </a>
         </div>
       </div>

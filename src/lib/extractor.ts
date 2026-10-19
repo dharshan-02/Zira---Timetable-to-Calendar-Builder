@@ -77,6 +77,17 @@ export function extractEvents(
     try {
       const event = extractSingleEvent(row, electives, semesterStart, semesterEnd, sessionCounters);
       if (event) {
+        if (event.type === 'exam' && !event.examDate) {
+          unparsedRows.push({
+            rowNumber: row.rowNumber,
+            rawContent: row.rawContent,
+            sourceFile: row.sourceFile,
+            reason: 'Exam row has no explicit calendar date; it cannot be safely scheduled as a weekly class.',
+            sourceExcerpt: row.sourceExcerpt,
+          });
+          evidence.push(`Row ${row.rowNumber}: Kept unparsed because the exam date is missing.`);
+          continue;
+        }
         events.push(event);
         evidence.push(`Row ${row.rowNumber}: Extracted ${event.courseCode} ${event.weekday} ${event.startTime}-${event.endTime} [confidence: ${event.confidence}]`);
       } else {

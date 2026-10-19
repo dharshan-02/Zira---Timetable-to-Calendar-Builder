@@ -22,8 +22,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Proposal already approved' }, { status: 400 });
     }
 
-    // Step 1: Approve
-    approveProposal(proposalId);
+    // Keep the proposal pending until every idempotent write and read-back
+    // succeeds. A failed request can then be retried without locking it out.
     updateRunStatus(proposal.runId, 'executing');
 
     // Step 2: Write events to mock calendar (idempotent via stable IDs)
@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
 
     const allVerified = verification.verified === verification.totalEvents;
     updateRunStatus(proposal.runId, allVerified ? 'completed' : 'failed');
+    if (allVerified) approveProposal(proposalId);
 
     return NextResponse.json({
       status: allVerified ? 'completed' : 'partially_failed',

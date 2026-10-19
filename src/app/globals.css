@@ -1290,6 +1290,8 @@ html, body { max-width: 100%; overflow-x: clip; }
 .scenario-actual-heading { color: inherit; }
 .scenario-actual-copy { margin: 0; color: inherit; font-size: .8rem; line-height: 1.7; overflow-wrap: anywhere; }
 .scenario-actual-hint { color: #68756d; }
+.calendar-export-link { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: .4rem .7rem; border: 1px solid #d9ded7; border-radius: 10px; background: #f4f6f2; color: #315b4c; font-size: .75rem; font-weight: 700; text-decoration: none; transition: background .15s ease, border-color .15s ease; }
+.calendar-export-link:hover { background: #e8f0ea; border-color: #9eb8a7; }
 
 @media (max-width: 1000px) {
   .studio-sidebar {

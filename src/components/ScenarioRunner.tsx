@@ -189,7 +189,7 @@ export default function ScenarioRunner() {
                     {/* Actual Result */}
                     <div className={`scenario-actual p-4 rounded-xl border ${res ? (res.passed ? 'scenario-actual-success' : 'scenario-actual-failure') : 'scenario-actual-pending'}`}>
                       <div className="scenario-actual-heading text-[11px] font-black uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                        <span>📊</span> Actual Verified Output
+                        <span>📊</span> Actual Result
                       </div>
                       {res ? (
                         <p className="scenario-actual-copy text-xs leading-relaxed font-mono whitespace-pre-wrap">

@@ -14,6 +14,9 @@ const calendarStore = new Map(loadRecords<CalendarEvent>('calendar-events.json')
  * Uses stable IDs for idempotent writes — same ID overwrites, not duplicates.
  */
 export function writeEvents(events: ExtractedEvent[]): CalendarEvent[] {
+  if (events.some((event) => event.type === 'exam' && !event.examDate)) {
+    throw new Error('An exam must have an explicit date before it can be added to the calendar.');
+  }
   const written: CalendarEvent[] = [];
   const now = new Date().toISOString();
 
@@ -87,7 +90,10 @@ export function clearCalendar(): void {
  * Compare existing calendar events with proposed events to determine
  * which are new, updated, or unchanged.
  */
-export function diffEvents(proposed: ExtractedEvent[]): {
+export function diffEvents(
+  proposed: ExtractedEvent[],
+  existingEvents: Iterable<Pick<CalendarEvent, 'id' | 'contentHash'>> = calendarStore.values()
+): {
   newEvents: string[];
   updatedEvents: string[];
   unchangedEvents: string[];
@@ -95,9 +101,10 @@ export function diffEvents(proposed: ExtractedEvent[]): {
   const newEvents: string[] = [];
   const updatedEvents: string[] = [];
   const unchangedEvents: string[] = [];
+  const existingById = new Map(Array.from(existingEvents, (event) => [event.id, event]));
 
   for (const event of proposed) {
-    const existing = calendarStore.get(event.id);
+    const existing = existingById.get(event.id);
     if (!existing) {
       newEvents.push(event.id);
     } else if (existing.contentHash !== event.contentHash) {
@@ -137,6 +144,9 @@ export function generateICS(events: CalendarEvent[]): string {
   ];
 
   for (const event of events) {
+    if (event.type === 'exam' && !event.examDate) {
+      throw new Error(`Exam ${event.id} has no date and cannot be exported as a recurring event.`);
+    }
     lines.push('BEGIN:VEVENT');
     lines.push(`UID:${event.id}@timetable-builder`);
     lines.push(`SUMMARY:${event.title}`);

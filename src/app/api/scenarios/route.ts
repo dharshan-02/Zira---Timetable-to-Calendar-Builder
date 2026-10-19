@@ -4,9 +4,8 @@ import { SCENARIOS, getScenarioFixture, TC3_FIXTURE_ORIGINAL, TC3_FIXTURE_REVISE
 import { parseTextContent, parseOCRContent } from '@/lib/parser';
 import { extractEvents } from '@/lib/extractor';
 import { detectClashes } from '@/lib/clashDetector';
-import { writeEvents, diffEvents, clearCalendar } from '@/lib/calendarAdapter';
-import { verifyEvents } from '@/lib/verifier';
-import { createRun, updateRunEvents, updateRunStatus, updateRunVerification, saveScenarioResult, getAllScenarioResults } from '@/lib/store';
+import { diffEvents } from '@/lib/calendarAdapter';
+import { createRun, updateRunEvents, updateRunStatus, saveScenarioResult, getAllScenarioResults } from '@/lib/store';
 import { generateRunId, simpleHash } from '@/lib/ids';
 import type { Run, ScenarioResult } from '@/lib/types';
 
@@ -62,7 +61,6 @@ export async function POST(req: NextRequest) {
 
 // ─── TC1: Weekly Timetable ─────────────────────────────────────────────
 async function runTC1(scenario: typeof SCENARIOS[0]): Promise<ScenarioResult> {
-  clearCalendar();
   const content = getScenarioFixture('TC1');
   const run = createTestRun(scenario);
 
@@ -71,12 +69,7 @@ async function runTC1(scenario: typeof SCENARIOS[0]): Promise<ScenarioResult> {
   const clashes = detectClashes(extraction.events);
 
   updateRunEvents(run.id, extraction.events, clashes.clashes, extraction.unparsedRows);
-  updateRunStatus(run.id, 'executing');
-
-  const written = writeEvents(extraction.events);
-  const verification = verifyEvents(extraction.events, run.id);
-  updateRunVerification(run.id, verification);
-  updateRunStatus(run.id, 'completed');
+  updateRunStatus(run.id, 'reviewing');
 
   const allRoomsCorrect = extraction.events.every(e => e.room && e.room !== 'TBA');
   const hasRecurrence = extraction.events.every(e => e.recurrenceStart && e.recurrenceEnd);
@@ -87,13 +80,12 @@ async function runTC1(scenario: typeof SCENARIOS[0]): Promise<ScenarioResult> {
     `Clashes detected: ${clashes.clashes.length}.`,
     `All rooms assigned: ${allRoomsCorrect ? 'Yes' : 'No'}.`,
     `Recurrence set: ${hasRecurrence ? 'Yes' : 'No'}.`,
-    `Calendar writes: ${written.length}/${extraction.events.length}.`,
-    `Verification: ${verification.verified}/${verification.totalEvents} verified.`,
+    'Calendar changes: previewed; awaiting explicit human approval.',
     `Rooms: ${extraction.events.map(e => `${e.courseCode}→${e.room}`).join(', ')}.`,
   ].join('\n');
 
   const passed = extraction.successfulExtractions >= 8 && clashes.clashes.length === 0 && 
-                 allRoomsCorrect && verification.verified === verification.totalEvents;
+                 allRoomsCorrect && hasRecurrence;
 
   return {
     scenarioId: 'TC1',
@@ -102,8 +94,8 @@ async function runTC1(scenario: typeof SCENARIOS[0]): Promise<ScenarioResult> {
     actual,
     passed,
     evidence: JSON.stringify({
+      source: { fixture: scenario.fixtureFile, input: content },
       events: extraction.events.map(e => ({ id: e.id, code: e.courseCode, day: e.weekday, time: `${e.startTime}-${e.endTime}`, room: e.room, type: e.type })),
-      verification: verification.results.map(r => ({ id: r.eventId, status: r.status })),
       clashes: clashes.clashes,
       unparsed: extraction.unparsedRows,
     }, null, 2),
@@ -156,6 +148,7 @@ async function runTC2(scenario: typeof SCENARIOS[0]): Promise<ScenarioResult> {
     actual,
     passed,
     evidence: JSON.stringify({
+      source: { fixture: scenario.fixtureFile, input: content },
       clashes: clashes.clashes,
       events: extraction.events.map(e => ({ id: e.id, code: e.courseCode, day: e.weekday, time: `${e.startTime}-${e.endTime}`, type: e.type, isElective: e.isElective })),
       preservedClashEvents: Array.from(clashEventIds),
@@ -166,14 +159,12 @@ async function runTC2(scenario: typeof SCENARIOS[0]): Promise<ScenarioResult> {
 
 // ─── TC3: Rerun After Revision ─────────────────────────────────────────
 async function runTC3(scenario: typeof SCENARIOS[0]): Promise<ScenarioResult> {
-  clearCalendar();
   // Step 1: Run original timetable
   const originalContent = TC3_FIXTURE_ORIGINAL;
   const run = createTestRun(scenario);
 
   const parse1 = parseTextContent(originalContent, 'tc3-original.txt');
   const extract1 = extractEvents(parse1, []);
-  writeEvents(extract1.events);
 
   // Step 2: Run revised timetable
   const revisedContent = TC3_FIXTURE_REVISED;
@@ -181,15 +172,10 @@ async function runTC3(scenario: typeof SCENARIOS[0]): Promise<ScenarioResult> {
   const extract2 = extractEvents(parse2, []);
 
   // Step 3: Diff
-  const diff = diffEvents(extract2.events);
-
-  // Step 4: Write only changed events (all via idempotent write)
-  writeEvents(extract2.events);
-  const verification = verifyEvents(extract2.events, run.id);
+  const diff = diffEvents(extract2.events, extract1.events.map((event) => ({ id: event.id, contentHash: event.contentHash })));
 
   updateRunEvents(run.id, extract2.events, [], []);
-  updateRunVerification(run.id, verification);
-  updateRunStatus(run.id, 'completed');
+  updateRunStatus(run.id, 'reviewing');
 
   const actual = [
     `Original: ${extract1.events.length} events.`,
@@ -197,7 +183,7 @@ async function runTC3(scenario: typeof SCENARIOS[0]): Promise<ScenarioResult> {
     `New events: ${diff.newEvents.length} (${diff.newEvents.join(', ') || 'none'}).`,
     `Updated events: ${diff.updatedEvents.length} (${diff.updatedEvents.join(', ') || 'none'}).`,
     `Unchanged events: ${diff.unchangedEvents.length} (${diff.unchangedEvents.join(', ') || 'none'}).`,
-    `Verification: ${verification.verified}/${verification.totalEvents} verified.`,
+    'Calendar writes: none; this benchmark only previews the revision diff.',
     `Updated details:`,
     ...diff.updatedEvents.map(id => {
       const orig = extract1.events.find(e => e.id === id);
@@ -208,7 +194,7 @@ async function runTC3(scenario: typeof SCENARIOS[0]): Promise<ScenarioResult> {
 
   const passed = diff.unchangedEvents.length > 0 && 
                  diff.updatedEvents.length > 0 && 
-                 verification.verified === verification.totalEvents;
+                 diff.newEvents.length === 0;
 
   return {
     scenarioId: 'TC3',
@@ -217,10 +203,10 @@ async function runTC3(scenario: typeof SCENARIOS[0]): Promise<ScenarioResult> {
     actual,
     passed,
     evidence: JSON.stringify({
+      source: { originalFixture: 'tc3-original.txt', revisedFixture: 'tc3-revised.txt', originalInput: originalContent, revisedInput: revisedContent },
       diff,
       originalEvents: extract1.events.map(e => ({ id: e.id, code: e.courseCode, hash: e.contentHash, room: e.room, time: `${e.startTime}-${e.endTime}` })),
       revisedEvents: extract2.events.map(e => ({ id: e.id, code: e.courseCode, hash: e.contentHash, room: e.room, time: `${e.startTime}-${e.endTime}` })),
-      verification: verification.results.map(r => ({ id: r.eventId, status: r.status, diffs: r.differences })),
     }, null, 2),
     timestamp: new Date().toISOString(),
   };
@@ -262,6 +248,7 @@ async function runTC4(scenario: typeof SCENARIOS[0]): Promise<ScenarioResult> {
     actual,
     passed,
     evidence: JSON.stringify({
+      source: { fixture: scenario.fixtureFile, input: content },
       unparsedRows: extraction.unparsedRows,
       parsedEvents: extraction.events.map(e => ({ id: e.id, code: e.courseCode, day: e.weekday, confidence: e.confidence })),
       parseMethod: parseResult.method,
