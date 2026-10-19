@@ -66,6 +66,17 @@ export default function Home() {
   const [verificationReport, setVerificationReport] = useState<VerificationReport | null>(null);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
 
+  const clearCurrentReview = () => {
+    setActiveRunId(null);
+    setEvents([]);
+    setClashes([]);
+    setUnparsedRows([]);
+    setProposal(null);
+    setVerificationReport(null);
+    setCalendarEvents([]);
+    setCurrentStep(1);
+  };
+
   useEffect(() => {
     if (!mobileNavOpen) return;
     const previousOverflow = document.body.style.overflow;
@@ -154,6 +165,7 @@ export default function Home() {
   const handleLaunchPipeline = async () => {
     setLoading(true);
     setErrorMsg(null);
+    clearCurrentReview();
     try {
       let timetableContent = rawText;
       let effectiveSourceRef = sourceRef;
@@ -635,7 +647,13 @@ export default function Home() {
                       id="source-type"
                       value={sourceType}
                       onChange={(e) => {
+                        clearCurrentReview();
                         setSourceType(e.target.value as typeof sourceType);
+                        if (e.target.value === 'pdf') {
+                          setSourceFile(null);
+                          setRawText('');
+                          setSourceRef('uploaded-timetable.pdf');
+                        }
                         setSourceEvidence(undefined);
                         setHistorySourceNotice(null);
                       }}
@@ -679,7 +697,17 @@ export default function Home() {
                       id="source-pdf"
                       type="file"
                       accept="application/pdf,.pdf"
-                      onChange={(event) => { setSourceFile(event.target.files?.[0] ?? null); setSourceEvidence(undefined); setHistorySourceNotice(null); }}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] ?? null;
+                        clearCurrentReview();
+                        setSourceFile(file);
+                        setRawText('');
+                        setSourceRef(file?.name ?? 'uploaded-timetable.pdf');
+                        setSourceEvidence(undefined);
+                        setHistorySourceNotice(null);
+                        setErrorMsg(null);
+                        setActivePreset(null);
+                      }}
                       className="text-input source-file-input"
                     />
                     <p className="source-help">Selectable-text PDFs up to 12 MB are supported. Scanned image-only PDFs stay flagged for human review.</p>
@@ -697,6 +725,9 @@ export default function Home() {
                             { type: 'application/pdf' },
                           );
                           setSourceFile(file);
+                          clearCurrentReview();
+                          setRawText('');
+                          setSourceRef(file.name);
                           setSourceEvidence(undefined);
                           setHistorySourceNotice(null);
                           setActivePreset(null);

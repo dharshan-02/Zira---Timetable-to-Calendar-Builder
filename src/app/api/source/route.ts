@@ -186,10 +186,19 @@ async function readLimitedBody(response: Response, limit: number) {
 
 async function extractPdfText(data: Uint8Array) {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  // Set an absolute file URL so PDF.js can load its dynamically imported
+  // worker from the standalone server's traced node_modules directory.
+  const { createRequire } = await import('node:module');
+  const { pathToFileURL } = await import('node:url');
+  const require = createRequire(import.meta.url);
+  pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(
+    require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs'),
+  ).href;
   let pdf: Awaited<ReturnType<typeof pdfjs.getDocument>>['promise'] extends Promise<infer T> ? T : never;
   try {
     pdf = await pdfjs.getDocument({ data, useSystemFonts: true }).promise;
-  } catch {
+  } catch (error) {
+    console.error('PDF text extraction failed:', error);
     throw new SourceError('This PDF could not be decoded. It may be damaged or encrypted.', 422);
   }
   const pageRows: string[] = [];
