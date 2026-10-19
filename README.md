@@ -1,74 +1,135 @@
 # Weekline
 
-Weekline turns a timetable into a reviewable weekly calendar. It keeps source evidence, overlap decisions, proposed changes, approval, and read-back verification visible in one workflow.
+**Turn a timetable into a reviewable weekly calendar.** Weekline extracts class and exam sessions from timetable text, public pages, and selectable-text PDFs, checks for clashes, and shows proposed calendar changes for approval before exporting an iCalendar file.
 
-## Current capabilities
+[Open the live demo](https://zira-timetable-to-calendar-builder.onrender.com/) · [View the source on GitHub](https://github.com/dharshan-02/Zira---Timetable-to-Calendar-Builder)
 
-- Collects a cohort/section, electives, and a timetable source.
-- Accepts pasted text, public static HTML/text/PDF URLs, and uploaded PDFs with selectable text.
-- Extracts text from PDFs with PDF.js, preserving page-row order as far as the document's text layer allows.
-- Parses class and exam sessions, flags overlaps, and retains rows it cannot parse with source locations and reasons.
-- Proposes new, changed, and unchanged calendar entries before requiring a human approval action.
-- Writes to a local demo calendar, reads those events back independently, and exports an `.ics` calendar.
-- Includes the four official demo scenarios (TC1–TC4) and a separate exam-conflict example.
-- Includes ten reusable synthetic timetable samples under `public/samples/timetables/`, selectable from the workspace.
-- Persists runs, proposals, scenario results, and demo calendar entries as JSON under `.data` by default. Set `DATA_DIR` to use another directory.
+> Weekline is a deterministic, evidence-first timetable workflow. It does not claim to use an AI model, connect to Google or Outlook, or sync with a university system. Calendar writes are made to the app's local demo calendar.
 
-This is an evidence-first deterministic workflow. It does not claim to use an LLM, bypass institutional logins, or synchronize directly with Google/Outlook. Public-source fetching is limited to static public HTML, text, and PDF responses; login-protected pages, JavaScript-only schedules, and image-only scanned PDFs require a permitted manual/OCR step. The URL fetcher rejects local and private network targets.
+## What it does
+
+- **Bring in a timetable:** use a built-in sample, paste text, provide a public static HTML/text/PDF URL, or upload a PDF with selectable text.
+- **Review the source:** inspect extracted text and source references before working with the schedule.
+- **Extract sessions:** identify classes and exams with course, day, time, room, instructor, source row, and confidence details where available.
+- **Audit clashes:** flag overlapping sessions and highlight unreadable or unparsed rows with their source evidence.
+- **Preview changes:** compare proposed new, updated, unchanged, and removed calendar entries before anything is written.
+- **Approve deliberately:** approve the proposal to write it to the local demo calendar, then independently read the entries back for verification.
+- **Keep an audit trail:** reopen saved reviews from Review history and export verified calendar entries as `.ics`.
+- **Explore scenarios:** run the four benchmark cases (TC1–TC4) and try ten synthetic timetable examples.
+
+## Workflow
+
+```text
+Choose source → Retrieve → Extract sessions → Audit clashes
+      → Review proposed changes → Human approval → Write → Verify and export
+```
+
+Every review retains its source snapshot, parsed sessions, clash evidence, proposal, and verification results so a person can inspect the work before approving it.
+
+## Supported sources and limits
+
+| Source | Support | Notes |
+| --- | --- | --- |
+| Built-in scenarios and text samples | Yes | Includes TC1–TC4, an exam-conflict example, and ten sample schedules. |
+| Pasted timetable text | Yes | Best results come from consistent rows with course, day, and time information. |
+| Public timetable URL | Yes | Supports public static HTML tables, text, CSV, and PDF responses. |
+| PDF upload | Yes | Selectable-text PDFs up to 12 MB. |
+| Scanned or image-only PDF | Limited | Requires OCR or manual transcription; image-only PDFs are not silently treated as readable text. |
+| Login-protected or JavaScript-only source | No | Use an authorized export or paste the timetable text instead. |
+
+Timetable layouts vary. Weekline keeps rows it cannot confidently parse visible for human review; extracted times and course details should be checked against the source before approval. A public demo PDF is included at [`public/samples/Godfrey-Okoye-University-FCIT-Lecture-Timetable-2026-2027.pdf`](public/samples/Godfrey-Okoye-University-FCIT-Lecture-Timetable-2026-2027.pdf). Its source is the [Godfrey Okoye University timetable page](https://gouni.edu.ng/lecture-time-table/).
+
+## Tech stack
+
+- Next.js App Router and React
+- TypeScript
+- Tailwind CSS
+- PDF.js for selectable-text PDF extraction
+- FullCalendar for weekly calendar views
+- JSON file persistence for the single-instance demo deployment
 
 ## Run locally
+
+Requirements: Node.js and npm. The production container is based on Node.js 24.
 
 ```bash
 npm ci
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Visit [http://localhost:3000](http://localhost:3000).
 
-## Run as a persistent container
+To create an optimized production build and run it locally:
 
-The production image uses Next.js standalone output and mounts a volume for the local audit data:
+```bash
+npm run build
+npm run start
+```
+
+## Verify the project
+
+Start the app with `npm run dev`, then run the checks from another terminal:
+
+```bash
+npm run lint
+npx tsc --noEmit
+npm run test:api
+npm run test:samples
+npm run test:scenarios
+```
+
+The API, sample, and scenario scripts use `http://localhost:3000` by default. Set `BASE_URL` to point them at another running instance.
+
+## Run in Docker
+
+The included Dockerfile builds a standalone Next.js server. Docker Compose also mounts persistent storage for review history and the local demo calendar:
 
 ```bash
 docker compose up --build
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The hosting platform must retain the `/app/data` volume. This JSON-backed storage is intended for a single application instance; a multi-instance deployment should use a shared database. A public deployment still needs a hosting account and a persistent volume configured by its operator.
-
-## Included PDF sample
-
-[`public/samples/Godfrey-Okoye-University-FCIT-Lecture-Timetable-2026-2027.pdf`](public/samples/Godfrey-Okoye-University-FCIT-Lecture-Timetable-2026-2027.pdf) is a selectable-text 2026/2027 lecture timetable from the [official Godfrey Okoye University timetable page](https://gouni.edu.ng/lecture-time-table/). In the app, choose **Upload a PDF** and select **Use the included Godfrey Okoye University lecture timetable PDF**. This is a public demonstration source; the organizer's mock page/PDF has not been supplied.
-
-## Sample timetables and source checks
-
-The ten sample text files cover computer science, business, engineering, nursing, arts, data science, law, architecture, science, and elective overlaps. They use a consistent pipe-delimited layout and can be loaded as samples or pasted into the text source field. To verify all ten fixtures plus pasted text, the included PDF upload, and the public Godfrey Okoye PDF URL against a running local app, run:
-
-```bash
-node scripts/verify-timetable-samples.mjs
-```
-
-The Godfrey Okoye source omits AM/PM on many class ranges. Those slots are inferred as common daytime hours and deliberately marked for human review before calendar approval. Some wrapped titles, lecturer names, and other non-session PDF lines remain listed as unparsed source evidence.
+Visit [http://localhost:3000](http://localhost:3000). Stop the service with `Ctrl+C`; remove the Compose container with `docker compose down`. The named `weekline-data` volume remains so saved review data is retained.
 
 ## Deploy to Render
 
-The app needs a Docker web service because its API routes and local JSON storage are part of the application. To keep saved reviews after redeploys, use a Render web service with a persistent disk:
+The app requires a **Web Service** because it uses server-side API routes. Deploy the repository with the included Dockerfile:
 
-1. Push this project to a GitHub repository and connect that repository when creating a new Render **Web Service**.
-2. Select **Docker** as the runtime so Render builds the included `Dockerfile`.
-3. Set `DATA_DIR` to `/app/data` and `PORT` to `10000` in the service environment.
-4. Add a persistent disk mounted at `/app/data` (Render persistent disks require a paid web service).
-5. Deploy. Render will provide a public `onrender.com` URL. Open it and run TC1–TC4, then verify the exported `.ics` and saved run history.
+1. In Render, choose **New → Web Service** and connect this GitHub repository.
+2. Leave **Root Directory** blank; the Dockerfile is at the repository root.
+3. Select **Docker**, choose a region and service plan, then configure the service.
+4. Add these environment variables:
 
-The app's JSON files support one service instance. If you need multiple instances, move persistence to a shared database before scaling. See [Render's Docker deployment guide](https://render.com/docs/docker) and [persistent disk guide](https://render.com/docs/disks).
+   | Key | Value |
+   | --- | --- |
+   | `DATA_DIR` | `/app/data` |
+   | `PORT` | `10000` |
 
-## Demo flow
+5. To retain review history across deploys and restarts, attach a persistent disk mounted at `/app/data`. Render persistent disks require a paid service.
+6. Create the service, wait for deployment, and open its `onrender.com` URL. Run TC1–TC4 and check PDF intake, approval, history, and `.ics` export.
 
-1. Choose one of the four official scenarios, the supplemental exam example, paste a timetable, enter a public timetable URL, or upload a text-based PDF.
-2. Review the extracted text, source reference, and retrieval timestamp.
-3. Inspect extracted sessions, clash evidence, and unparsed rows.
-4. Review the calendar diff, then explicitly approve the local demo-calendar write.
-5. Check the independent read-back verification and download the `.ics` file.
+See Render's [Docker deployment guide](https://render.com/docs/docker) and [persistent disk guide](https://render.com/docs/disks) for current platform details.
 
-## Official scenarios
+## Data, privacy, and deployment notes
 
-The Scenarios view runs TC1–TC4 against synthetic fixtures and records each case's expected result, actual result, and evidence. The exam example is supplemental and is not presented as an official test case.
+- Review records and demo-calendar entries are stored as JSON under `.data` by default. Set `DATA_DIR` to change the location.
+- Only files written under the persistent disk mount survive a Render deploy or restart. Without a disk, treat saved history as temporary.
+- JSON persistence is designed for one application instance. Use a shared database before scaling to multiple instances.
+- The demo has no sign-in or per-user data separation. Anyone with access to a public deployment may use its shared workspace. Use synthetic or non-sensitive data.
+- Public URL fetching is restricted to public internet addresses and rejects local/private network targets.
+- Weekline does not directly write to Google Calendar or Outlook. Use the `.ics` export to import events into a calendar you control.
+
+## Repository layout
+
+```text
+src/app/              Next.js pages and API routes
+src/components/       Calendar, scenario, history, and presentation views
+src/lib/              Parsing, clash detection, persistence, and verification logic
+public/samples/       Public PDF and synthetic timetable fixtures
+scripts/              API and timetable sample verification scripts
+Dockerfile            Production container build
+docker-compose.yml    Local container setup with persistent data volume
+```
+
+## License
+
+No license is currently declared. Contact the repository owner before redistributing or reusing this project outside the repository's stated purpose.
