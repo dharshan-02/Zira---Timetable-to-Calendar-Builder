@@ -1,4 +1,4 @@
-# Weekline
+# Weekline 
 
 **Turn a timetable into a reviewable weekly calendar.** Weekline extracts class and exam sessions from timetable text, public pages, and selectable-text PDFs, checks for clashes, and shows proposed calendar changes for approval before exporting an iCalendar file.
 
