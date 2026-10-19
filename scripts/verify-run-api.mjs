@@ -38,6 +38,19 @@ const privateSource = await fetch(`${baseUrl}/api/source`, {
 });
 assert.equal(privateSource.status, 400, 'private-network source URLs should be rejected before connecting');
 
+for (const url of [
+  'http://[ff02::1]/', // IPv6 multicast
+  'http://[2001:0::1]/', // special-purpose IPv6 protocol assignment
+  'http://[3fff::1]/', // IPv6 documentation range
+  'http://[::ffff:127.0.0.1]/', // IPv4-mapped loopback
+]) {
+  const response = await fetch(`${baseUrl}/api/source`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ url }),
+  });
+  assert.equal(response.status, 400, `non-public IPv6 source ${url} should be rejected before connecting`);
+}
+
 for (const [label, body] of [
   ['non-object body', []],
   ['missing section', { sourceType: 'text' }],

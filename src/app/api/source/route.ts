@@ -205,11 +205,45 @@ function isPublicAddress(address: string) {
   }
   const normalized = address.toLowerCase();
   if (normalized.startsWith('::ffff:')) return isPublicAddress(normalized.slice(7));
-  if (normalized === '::' || normalized === '::1') return false;
-  if (/^(fc|fd|fe[89ab])/.test(normalized)) return false;
-  if (/^(64:ff9b|2002:)/.test(normalized)) return false;
-  if (/^(2001:db8|2001:0db8)/.test(normalized)) return false;
-  return isIP(normalized) === 6;
+  if (isIP(normalized) !== 6) return false;
+
+  const value = ipv6ToBigInt(normalized);
+  // Only accept IPv6 global unicast (2000::/3). This excludes loopback,
+  // link-local, unique-local, multicast, unspecified, and IPv4 transition
+  // ranges by default.
+  if ((value >> BigInt(125)) !== BigInt(1)) return false;
+
+  // Reject special-purpose and documentation allocations within global
+  // unicast space. Excluding all of 2001::/23 is intentionally conservative.
+  return ![
+    ['2001::', 23], // IETF protocol assignments and other special-purpose use
+    ['2002::', 16], // 6to4
+    ['3fff::', 20], // documentation prefix
+  ].some(([prefix, bits]) => ipv6PrefixMatches(value, prefix as string, bits as number));
+}
+
+function ipv6PrefixMatches(address: bigint, prefix: string, bits: number) {
+  return (address >> BigInt(128 - bits)) === (ipv6ToBigInt(prefix) >> BigInt(128 - bits));
+}
+
+function ipv6ToBigInt(address: string): bigint {
+  let input = address.toLowerCase();
+  const ipv4Tail = input.match(/(?:^|:)(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (ipv4Tail) {
+    const octets = ipv4Tail[1].split('.').map(Number);
+    const high = ((octets[0] << 8) | octets[1]).toString(16);
+    const low = ((octets[2] << 8) | octets[3]).toString(16);
+    input = input.replace(ipv4Tail[0], `:${high}:${low}`);
+  }
+
+  const halves = input.split('::');
+  const left = halves[0] ? halves[0].split(':') : [];
+  const right = halves.length === 2 && halves[1] ? halves[1].split(':') : [];
+  const groups = halves.length === 2
+    ? [...left, ...Array(8 - left.length - right.length).fill('0'), ...right]
+    : left;
+
+  return groups.reduce((value, group) => (value << BigInt(16)) | BigInt(`0x${group || '0'}`), BigInt(0));
 }
 
 async function extractPdfText(data: Uint8Array) {
